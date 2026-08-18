@@ -1,0 +1,774 @@
+// ============================================================================
+// Securivon — Production Database Schema
+// ============================================================================
+// This schema implements the entity/data model approved across Phase 2
+// (Architecture), the Phase 2 Corrections addendum, and Phase 4 (Production
+// Implementation Plan). It contains NO seed data and NO real business data —
+// see prisma/seed.ts for clearly-labeled development fixtures only.
+//
+// Hard rules encoded by this schema (see README "Security notes"):
+//   1. Product.supplierCost and Supplier.notes are internal-only fields.
+//      The public-facing API layer (src/server/*) must never select them —
+//      enforced by explicit allowlist serializers, not by omission alone.
+//   2. Quote / QuoteItem are treated as append-only once created: the
+//      application layer must never update pricing fields on an existing
+//      Quote. Revisions create a new Quote linked via revisedFromQuoteId.
+//   3. All customer/lead PII (Customer.phone, .email, .addressArea) must
+//      only be readable through authenticated Admin-facing queries.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Shared enums
+// ----------------------------------------------------------------------------
+
+enum PriceType {
+  FIXED
+  STARTING_FROM
+  RANGE
+  ESTIMATED
+  QUOTE_ONLY
+}
+
+enum Availability {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  ORDER_REQUIRED
+  DISCONTINUED
+  UNKNOWN
+}
+
+// Distinct from PriceType (which describes HOW a price displays: fixed,
+// starting-from, range, etc.). PricingStatus describes whether that price
+// is current/trustworthy enough to show at all. This is the mechanism that
+// enforces "the public calculator must never use NEEDS_REVIEW or STALE as
+// verified pricing" — see src/server/pricing/pricingStatus.ts, which is the
+// single place this rule is implemented and unit-tested.
+enum PricingStatus {
+  VERIFIED
+  NEEDS_REVIEW
+  STALE
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SupplierTier {
+  PRIMARY
+  STRONG
+  DISCOVERY
+}
+
+enum WarrantyProvider {
+  MANUFACTURER
+  SECURIVON
+  DISTRIBUTOR
+}
+
+enum PackageCategory {
+  HOME_STARTER
+  HOME_COMPLETE
+  SHOP_RETAIL
+  OFFICE
+  RESTAURANT_CAFE
+  CUSTOM
+}
+
+enum PackageItemRequirement {
+  REQUIRED
+  OPTIONAL
+}
+
+enum PackageItemInclusion {
+  INCLUDED
+  EXCLUDED
+  OPTIONAL_ADDON
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+enum TaxAppliesTo {
+  HARDWARE
+  INSTALLATION
+  ALL
+}
+
+enum TaxInclusivity {
+  INCLUSIVE
+  EXCLUSIVE
+  UNSTATED
+}
+
+enum RoundingDirection {
+  NEAREST
+  UP
+  DOWN
+}
+
+enum InstallationServiceType {
+  CCTV
+  ACCESS_CONTROL
+  INTERCOM
+  NETWORKING
+}
+
+enum LeadSource {
+  CONFIGURATOR
+  REQUEST_QUOTE_FORM
+  WHATSAPP_DIRECT
+  PHONE
+}
+
+enum LeadJourneySource {
+  CONFIGURATOR
+  BROWSE_PACKAGE
+  BROWSE_SERVICE
+  DIRECT_CONTACT
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  SITE_SURVEY_SCHEDULED
+  QUOTED
+  WON
+  LOST
+}
+
+enum SiteSurveyStatus {
+  REQUESTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum QuoteType {
+  CONFIGURATOR_ESTIMATE
+  PACKAGE_BASED
+  MANUAL_CUSTOM
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  EXPIRED
+}
+
+enum QuoteItemType {
+  PRODUCT
+  PACKAGE
+  CUSTOM_LINE
+}
+
+enum AdminRole {
+  ADMIN
+  CONTENT_EDITOR
+  PRICING_MANAGER
+  SALES_OPERATIONS
+}
+
+// ----------------------------------------------------------------------------
+// Core catalogue
+// ----------------------------------------------------------------------------
+
+model Brand {
+  id               String    @id @default(cuid())
+  name             String
+  slug             String    @unique
+  logoUrl          String?
+  countryOfOrigin  String?
+  description      String?
+  // Only ever set to a verified, real manufacturer URL — never invented
+  // (Phase 4 corrections §5 / Stage 2 §6 instruction).
+  websiteUrl       String?
+  active           Boolean   @default(true)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  products Product[]
+
+  @@index([slug])
+  @@index([active])
+}
+
+model Category {
+  id                     String    @id @default(cuid())
+  name                   String
+  slug                   String    @unique
+  description            String?
+  sortOrder              Int       @default(0)
+  active                 Boolean   @default(true)
+  seoTitle               String?
+  seoDescription         String?
+  parentCategoryId       String?
+  specificationTemplate  Json?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  parentCategory   Category?  @relation("CategoryToSubcategory", fields: [parentCategoryId], references: [id])
+  subcategories    Category[] @relation("CategoryToSubcategory")
+  products         Product[]
+  discounts        Discount[]
+
+  @@index([slug])
+  @@index([parentCategoryId])
+  @@index([sortOrder])
+}
+
+model Supplier {
+  id          String        @id @default(cuid())
+  name        String
+  contactInfo Json?
+  tier        SupplierTier  @default(DISCOVERY)
+  // INTERNAL ONLY — must never be selected by any public-facing query/serializer.
+  notes       String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  products Product[]
+
+  @@index([tier])
+}
+
+model Warranty {
+  id               String            @id @default(cuid())
+  // Short label shown in Admin lists (e.g. "1-year manufacturer warranty") —
+  // distinct from the full conditions text.
+  name             String
+  durationMonths   Int
+  provider         WarrantyProvider  @default(MANUFACTURER)
+  // Free-text warranty type/category (e.g. "Standard", "Extended") — kept
+  // as a plain string rather than an enum since real Securivon warranty
+  // terminology hasn't been confirmed yet (Phase 2 Corrections' recurring
+  // "don't invent real terms" rule applies here too).
+  warrantyType     String?
+  conditionsText   String?
+  exclusionsText   String?
+  active           Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  products Product[]
+  packages Package[]
+
+  @@index([active])
+}
+
+model Product {
+  id                       String         @id @default(cuid())
+  slug                     String         @unique
+  name                     String
+  // Model/SKU as sold by the supplier — distinct from `name` (which may be
+  // Securivon's own customer-facing product name).
+  sku                      String?
+  brandId                  String
+  categoryId               String
+  productType              String
+  shortDescription         String?
+  longDescription          String?
+  // [{ url, alt }] — production images only; never AI-generated/invented imagery.
+  images                   Json?
+  // Category-dependent key-value spec data (resolution, bitrate, codec, fps,
+  // etc.) — validated at the application layer against Category.specificationTemplate.
+  specifications           Json?
+  // Plain-language "suitable for" bullets shown to non-technical customers
+  // (Phase 3's "High-detail outdoor camera — suitable for entrances, shops
+  // and outdoor areas" pattern) — distinct from configuratorTags, which is
+  // machine-matching data, not display copy.
+  useCases                 String[]
+  warrantyId               String?
+  supplierId               String?
+  // INTERNAL ONLY — see schema header. Never exposed via public API.
+  supplierCost             Decimal?       @db.Decimal(12, 2)
+
+  customerPriceType        PriceType      @default(QUOTE_ONLY)
+  customerPriceValue       Decimal?       @db.Decimal(12, 2)
+  customerPriceValueMax    Decimal?       @db.Decimal(12, 2)
+
+  installationPriceType    PriceType      @default(QUOTE_ONLY)
+  installationPriceValue   Decimal?       @db.Decimal(12, 2)
+  installationPriceValueMax Decimal?      @db.Decimal(12, 2)
+
+  // Verification freshness for the price fields above — see the
+  // PricingStatus enum doc comment. Independent of `status` (DRAFT/
+  // PUBLISHED/ARCHIVED), which governs content visibility, not price trust.
+  pricingStatus            PricingStatus  @default(NEEDS_REVIEW)
+  priceEffectiveDate        DateTime?
+  priceReviewDueDate          DateTime?
+
+  availability             Availability   @default(UNKNOWN)
+  verificationDate         DateTime?
+  // INTERNAL ONLY — supplier/reference link, never shown to customers.
+  sourceUrl                String?
+
+  // Drives both catalogue filtering and configurator product selection —
+  // single source of truth, per Phase 3's design intent.
+  configuratorTags         String[]
+
+  seoTitle                 String?
+  seoDescription           String?
+  // DRAFT/PUBLISHED = content visibility. ARCHIVED = soft-removed from
+  // Admin's active views without deleting history (quotes/packages that
+  // reference this product keep working). Distinct from deletedAt, which
+  // is reserved for a genuine hard-delete audit trail if ever needed.
+  status                   ContentStatus  @default(DRAFT)
+
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  deletedAt                DateTime?
+
+  brand      Brand      @relation(fields: [brandId], references: [id])
+  category   Category   @relation(fields: [categoryId], references: [id])
+  warranty   Warranty?  @relation(fields: [warrantyId], references: [id])
+  supplier   Supplier?  @relation(fields: [supplierId], references: [id])
+
+  packageItems       PackageItem[]
+  pricingTiers       PricingTier[]
+  quoteItems         QuoteItem[]
+
+  // Self-relations: related vs. compatible are kept distinct per the
+  // approved product data model (Phase 2, Section C).
+  relatedTo      Product[] @relation("ProductRelated")
+  relatedFrom    Product[] @relation("ProductRelated")
+  compatibleTo   Product[] @relation("ProductCompatible")
+  compatibleFrom Product[] @relation("ProductCompatible")
+
+  @@index([slug])
+  @@index([sku])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([status])
+  @@index([availability])
+  @@index([pricingStatus])
+  @@index([verificationDate])
+}
+
+// ----------------------------------------------------------------------------
+// Packages
+// ----------------------------------------------------------------------------
+
+model Package {
+  id                        String           @id @default(cuid())
+  slug                      String           @unique
+  name                      String
+  targetCustomerDescription String?
+  category                  PackageCategory
+  cameraCount                Int?
+  cameraTypeSummary          String?
+  recorderProductId          String?
+  storageSummary              String?
+  networkingSummary           String?
+  cablingAssumptionText        String?
+  powerSummary                  String?
+  installationSummary            String?
+  warrantyId                       String?
+
+  priceType                        PriceType  @default(QUOTE_ONLY)
+  priceValue                       Decimal?   @db.Decimal(12, 2)
+  priceValueMax                    Decimal?   @db.Decimal(12, 2)
+  priceVerificationDate            DateTime?
+
+  // Maps this package's defaults onto configurator steps, powering the
+  // "Get This Package" prefilled-configurator shortcut approved in the prototype.
+  configuratorPrefill              Json?
+
+  status                            ContentStatus @default(DRAFT)
+  createdAt                         DateTime      @default(now())
+  updatedAt                         DateTime      @updatedAt
+  deletedAt                         DateTime?
+
+  warranty  Warranty? @relation(fields: [warrantyId], references: [id])
+
+  items      PackageItem[]
+  quotes     Quote[]
+  quoteItems QuoteItem[]
+  discounts  Discount[]
+
+  @@index([slug])
+  @@index([category])
+  @@index([status])
+}
+
+model PackageItem {
+  id                        String                  @id @default(cuid())
+  packageId                 String
+  productId                 String
+  quantity                  Int                     @default(1)
+  requirement                PackageItemRequirement @default(REQUIRED)
+  inclusionStatus             PackageItemInclusion   @default(INCLUDED)
+  // Overrides the product's standalone price for this package line, if needed.
+  priceOverride                 Decimal?              @db.Decimal(12, 2)
+  customerFacingDescription       String?
+  // INTERNAL ONLY — e.g. substitution notes. Never shown to customers.
+  internalNotes                     String?
+  displayOrder                        Int             @default(0)
+  createdAt                           DateTime        @default(now())
+  updatedAt                           DateTime        @updatedAt
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([packageId])
+  @@index([productId])
+}
+
+// ----------------------------------------------------------------------------
+// Pricing engine — all rates are Admin-editable records, never hardcoded.
+// ----------------------------------------------------------------------------
+
+model PricingTier {
+  id                String    @id @default(cuid())
+  productId         String?
+  serviceType       String?
+  minQuantity       Int
+  maxQuantity       Int?
+  unitPrice         Decimal   @db.Decimal(12, 2)
+  verificationDate  DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([productId])
+  @@index([serviceType])
+}
+
+model CablingRate {
+  id                          String    @id @default(cuid())
+  cableType                   String
+  ratePerMeter                Decimal   @db.Decimal(12, 2)
+  includedAllowancePerCamera  Decimal   @db.Decimal(12, 2) @default(0)
+  verificationDate            DateTime?
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+}
+
+model InstallationRate {
+  id                             String                   @id @default(cuid())
+  serviceType                    InstallationServiceType  @unique
+  baseRatePerUnit                Decimal                  @db.Decimal(12, 2) @default(0)
+  floorModifier                  Decimal                  @db.Decimal(12, 2) @default(0)
+  heightAccessModifier           Decimal                  @db.Decimal(12, 2) @default(0)
+  conduitTrunkingModifier        Decimal                  @db.Decimal(12, 2) @default(0)
+  existingVsNewCablingModifier   Decimal                  @db.Decimal(12, 2) @default(0)
+  configurationFee               Decimal                  @db.Decimal(12, 2) @default(0)
+  remoteViewSetupFee             Decimal                  @db.Decimal(12, 2) @default(0)
+  minimumCharge                  Decimal                  @db.Decimal(12, 2) @default(0)
+  verificationDate               DateTime?
+  createdAt                      DateTime                 @default(now())
+  updatedAt                      DateTime                 @updatedAt
+}
+
+model MinimumChargeRule {
+  id                    String    @id @default(cuid())
+  serviceType           String    @unique
+  minimumChargeAmount   Decimal   @db.Decimal(12, 2)
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Discount {
+  id                  String        @id @default(cuid())
+  name                String
+  type                DiscountType
+  value               Decimal       @db.Decimal(12, 2)
+  appliesToPackageId  String?
+  appliesToCategoryId String?
+  sitewide            Boolean       @default(false)
+  validFrom           DateTime?
+  validUntil          DateTime?
+  active              Boolean       @default(false)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  appliesToPackage  Package?  @relation(fields: [appliesToPackageId], references: [id])
+  appliesToCategory Category? @relation(fields: [appliesToCategoryId], references: [id])
+
+  @@index([active])
+}
+
+model TaxRule {
+  id                    String          @id @default(cuid())
+  name                  String
+  // Defaults to 0 / inactive until Ahmed confirms applicable tax treatment —
+  // see Phase 2 Corrections §1 and Phase 4 Risks. Never assumed non-zero.
+  ratePercentage        Decimal         @db.Decimal(5, 2) @default(0)
+  appliesTo             TaxAppliesTo    @default(ALL)
+  inclusiveOrExclusive  TaxInclusivity  @default(UNSTATED)
+  active                Boolean         @default(false)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+}
+
+model RoundingRule {
+  id           String             @id @default(cuid())
+  granularity  Decimal            @db.Decimal(12, 2) @default(500)
+  direction    RoundingDirection  @default(NEAREST)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// People / leads
+// ----------------------------------------------------------------------------
+
+model Customer {
+  id              String      @id @default(cuid())
+  name            String
+  // PII — only ever readable through authenticated Admin-facing queries.
+  phone           String
+  whatsappNumber  String?
+  email           String?
+  addressArea     String?
+  source          LeadSource  @default(REQUEST_QUOTE_FORM)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  leads Lead[]
+
+  @@index([phone])
+}
+
+model Lead {
+  id             String              @id @default(cuid())
+  customerId     String
+  journeySource  LeadJourneySource
+  status         LeadStatus          @default(NEW)
+  assignedTo     String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  customer            Customer             @relation(fields: [customerId], references: [id])
+  quotes               Quote[]
+  siteSurveyRequests    SiteSurveyRequest[]
+  configuratorSessions   ConfiguratorSession[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([journeySource])
+}
+
+model SiteSurveyRequest {
+  id                       String            @id @default(cuid())
+  leadId                   String
+  name                     String
+  phone                    String
+  propertyType             String
+  location                 String
+  preferredDateTime        String?
+  notes                    String?
+  configurationReference   String?
+  status                   SiteSurveyStatus  @default(REQUESTED)
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
+
+  lead Lead @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Quotes — append-only once created. See schema header rule #2.
+// ----------------------------------------------------------------------------
+
+model Quote {
+  id                      String       @id @default(cuid())
+  leadId                  String
+  packageId               String?
+  type                    QuoteType
+  status                  QuoteStatus  @default(DRAFT)
+  totalEstimatedLow       Decimal?     @db.Decimal(12, 2)
+  totalEstimatedHigh      Decimal?     @db.Decimal(12, 2)
+  isEstimateOnly          Boolean      @default(true)
+  siteSurveyRequired      Boolean      @default(false)
+
+  // Full serialized copy of every configurator answer that produced this
+  // quote — kept even though QuoteItem rows also exist, so the quote is
+  // fully reconstructible/auditable without guessing (Phase 2 Corrections §8).
+  configurationSnapshot   Json
+  // The specific tax rate / rounding rule / discount that applied at
+  // generation time — these are Admin-editable and could change later.
+  pricingRulesSnapshot    Json
+
+  revisedFromQuoteId      String?
+  validUntil              DateTime?
+
+  createdAt               DateTime     @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  lead              Lead        @relation(fields: [leadId], references: [id])
+  package           Package?    @relation(fields: [packageId], references: [id])
+  revisedFromQuote  Quote?      @relation("QuoteRevision", fields: [revisedFromQuoteId], references: [id])
+  revisions         Quote[]     @relation("QuoteRevision")
+  items             QuoteItem[]
+
+  @@index([leadId])
+  @@index([status])
+  @@index([revisedFromQuoteId])
+}
+
+model QuoteItem {
+  id                  String         @id @default(cuid())
+  quoteId             String
+  itemType            QuoteItemType
+  productId           String?
+  packageId           String?
+  // Snapshot description at time of quote — does not break if the
+  // underlying product/package is later renamed or changed.
+  description         String
+  quantity            Int            @default(1)
+  // Price at time of quote — must never be recalculated from current
+  // product/package pricing after creation.
+  unitPriceSnapshot   Decimal        @db.Decimal(12, 2)
+  lineTotal           Decimal        @db.Decimal(12, 2)
+  createdAt           DateTime       @default(now())
+
+  quote   Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+  package Package? @relation(fields: [packageId], references: [id])
+
+  @@index([quoteId])
+}
+
+model ConfiguratorSession {
+  id              String    @id @default(cuid())
+  propertyType    String?
+  // Full set of step answers, independent of whether this converts to a Quote.
+  answers         Json
+  computedResult  Json?
+  isConsultative  Boolean   @default(false)
+  // Only set once the session reaches Request Quote / Site Survey —
+  // sessions are not identity-linked before that point (privacy boundary,
+  // Phase 4 Risks #7).
+  leadId          String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  lead Lead? @relation(fields: [leadId], references: [id])
+
+  @@index([leadId])
+  @@index([createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Content
+// ----------------------------------------------------------------------------
+
+model Service {
+  id                      String         @id @default(cuid())
+  slug                    String         @unique
+  name                    String
+  // Fire alarm / intrusion ship with quoteOnly = true — no configurator
+  // entry point, per Phase 1/2's risk framing. Enforced in the API layer,
+  // not just content.
+  quoteOnly               Boolean        @default(false)
+  problemText             String?
+  solutionText             String?
+  suitableCustomersText     String?
+  featuresText                String?
+  processText                  String?
+  equipmentText                  String?
+  warrantyText                     String?
+  faq                                 Json?
+  seoTitle                            String?
+  seoDescription                       String?
+  status                                ContentStatus @default(DRAFT)
+  createdAt                             DateTime      @default(now())
+  updatedAt                             DateTime      @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+model ServiceArea {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  name             String
+  content          String
+  seoTitle         String?
+  seoDescription   String?
+  status           ContentStatus  @default(DRAFT)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([slug])
+}
+
+model Guide {
+  id               String         @id @default(cuid())
+  slug             String         @unique
+  title            String
+  body             String
+  seoTitle         String?
+  seoDescription   String?
+  status           ContentStatus  @default(DRAFT)
+  publishedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// Admin / ops
+// ----------------------------------------------------------------------------
+
+model AdminUser {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String
+  // MVP ships with a single ADMIN role in active use; the enum already
+  // supports future roles (Content Editor, Pricing Manager, Sales/Ops)
+  // without a schema migration, per your explicit "don't overbuild now"
+  // instruction — only ADMIN is wired into authorization logic at MVP.
+  role          AdminRole  @default(ADMIN)
+  active        Boolean    @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
+
+  auditLogs PricingAuditLog[]
+
+  @@index([email])
+}
+
+model PricingAuditLog {
+  id            String    @id @default(cuid())
+  adminUserId   String
+  // e.g. "CREATE" | "UPDATE" | "ARCHIVE" — free-text rather than an enum
+  // since the set of loggable actions may grow; kept intentionally simple
+  // for MVP per the "don't overbuild" instruction from Stage 1.
+  action        String
+  entityType    String
+  entityId      String
+  fieldChanged  String
+  oldValue      String?
+  newValue      String?
+  changedAt     DateTime  @default(now())
+
+  adminUser AdminUser @relation(fields: [adminUserId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([adminUserId])
+  @@index([changedAt])
+}
