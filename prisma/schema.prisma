@@ -17,13 +17,35 @@
 //      only be readable through authenticated Admin-facing queries.
 // ============================================================================
 
+// ============================================================================
+// PRISMA 7 CONFIGURATION NOTE
+// ============================================================================
+// generator.provider is "prisma-client" (not the older "prisma-client-js") —
+// Prisma's own v7 upgrade guide flags "prisma-client-js" as deprecated and
+// scheduled for removal, and recommends the new Rust-free client. This
+// generator requires an explicit `output` path (Prisma Client is no longer
+// generated into node_modules by default).
+//
+// The datasource block below deliberately has NO `url` field. As of Prisma 7
+// (confirmed against the official migration guide, and directly reproduced
+// against this exact error — P1012), datasource.url in schema.prisma is
+// removed entirely. The connection URL now lives in two places, each for a
+// different purpose:
+//   - prisma.config.ts (project root) — used by the Prisma CLI (validate,
+//     generate, migrate, studio).
+//   - A driver adapter (@prisma/adapter-pg) passed to the PrismaClient
+//     constructor at runtime — see src/server/db/client.ts.
+// See README "Known limitations" for why this couldn't be verified end-to-end
+// in this sandbox (network access to binaries.prisma.sh is still blocked).
+// ============================================================================
+
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ----------------------------------------------------------------------------

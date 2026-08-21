@@ -72,6 +72,8 @@ npx prisma migrate dev       # once you have a real Postgres instance to point D
 npm run dev
 ```
 
+**Prisma 7 note:** this project uses Prisma ORM v7's new configuration model. The database connection URL is no longer set in `prisma/schema.prisma` — it lives in `prisma.config.ts` (for the CLI) and is passed to a `@prisma/adapter-pg` driver adapter at runtime (see `src/server/db/client.ts`). See "Prisma 7 configuration" below for the full explanation.
+
 ## Environment variables
 
 See `.env.example` for the full list with descriptions. Summary:
@@ -96,13 +98,27 @@ See `.env.example` for the full list with descriptions. Summary:
 3. Run `npx prisma generate` to produce the Prisma Client, then `npx prisma migrate dev --name init` to create the schema.
 4. See `prisma/schema.prisma` for the full entity model — every table listed in the Phase 2/Phase 4 architecture is present.
 
+## Prisma 7 configuration
+
+This project targets **Prisma ORM v7**, which introduced a breaking change to how database connections are configured — schema.prisma's `datasource.url` field was removed entirely (error `P1012` if you try to keep it). The new model:
+
+| Concern | Where it lives |
+|---|---|
+| CLI operations (`validate`, `generate`, `migrate`, `studio`, `db seed`) | `prisma.config.ts` (project root) — reads `DATABASE_URL` via the `env()` helper, loaded explicitly via the `dotenv` package (Prisma 7 no longer auto-loads `.env` files) |
+| Running application (Prisma Client at runtime) | `src/server/db/client.ts` — constructs a `@prisma/adapter-pg` driver adapter from `DATABASE_URL` and passes it to `new PrismaClient({ adapter })`. The client constructor no longer accepts a bare connection string or `datasources`/`datasourceUrl` options — a driver adapter is mandatory for every database in v7. |
+| Generated client output | `src/generated/prisma/` (gitignored) — Prisma 7's `prisma-client` generator (used here instead of the older, soon-to-be-removed `prisma-client-js`) requires an explicit `output` path; it's no longer generated into `node_modules` by default. |
+
+Both `prisma.config.ts` and `src/server/db/client.ts` read the same `DATABASE_URL` — you only need to set it once, in `.env.local`.
+
+**Not yet configured:** SSL certificate handling for the driver adapter. Prisma 7 uses `node-pg` instead of the old Rust query engine, which changed SSL validation defaults — you may need an explicit `ssl` option on `PrismaPg` depending on how your Postgres provider's connection string is set up. See `src/server/db/client.ts`'s SSL note and `STAGE-2.5-DATABASE-DIAGNOSIS.md` for the exact next step once you're ready to connect to Supabase.
+
 ## Prisma commands
 
 ```bash
-npx prisma generate       # regenerate the client after any schema change
+npx prisma generate       # regenerate the client (into src/generated/prisma/) after any schema change
 npx prisma migrate dev    # create + apply a new migration in development
 npx prisma studio         # visual DB browser
-npx prisma validate       # check schema.prisma for errors
+npx prisma validate       # check schema.prisma + prisma.config.ts for errors
 ```
 
 ## Testing commands
@@ -172,7 +188,9 @@ Following the roadmap approved in the Phase 4 Production Implementation Plan:
 
 Two build-time network dependencies were unreachable in the sandbox this scaffold was built in, and both are documented at the exact point they matter in code, not just here:
 
-1. **Prisma engine binaries** (`binaries.prisma.sh`) — `prisma generate`/`validate`/`migrate` cannot run here (re-confirmed in Stage 2; still a 403). This has a real, confirmed downstream consequence beyond just `src/server/db/client.ts`:
+1. **Prisma engine binaries** (`binaries.prisma.sh`) — `prisma generate`/`validate`/`migrate` cannot run here (re-confirmed multiple times; still a 403). **Prisma 7's configuration itself is correct and verified as far as this sandbox allows**: `prisma.config.ts` loads successfully, `.env.local` loads successfully, the schema loads successfully — `npx prisma validate` and `npx prisma generate` both progress cleanly through every config-loading step and fail *only* at the final network call to fetch the schema-engine binary. This is strong evidence the Prisma 7 migration (removing `datasource.url`, adding `prisma.config.ts`, switching to the `prisma-client` generator with an explicit `output` path, and moving `PrismaClient` instantiation to the `@prisma/adapter-pg` driver-adapter pattern) is correctly implemented, even though full end-to-end success can't be confirmed without real network access.
+
+   This has the same real, confirmed downstream consequence as before: **real Admin API routes still cannot be mounted in this sandbox**, for the reason documented below.
 
    **Real Admin API routes cannot be mounted in this sandbox.** Next.js auto-generates a typed-routes validator (`.next/types/validator.ts`) that imports *every* `route.ts`/`page.tsx` file for type validation — this happens regardless of any `tsconfig.json` `exclude` entry, because the generated validator file is itself part of the included TypeScript program. This was tested empirically in Stage 2: a real `src/app/api/admin/test-route/route.ts` importing the Prisma client broke `tsc`/`next build` even when both that file and `db/client.ts` were explicitly excluded, because Next's generated validator re-imported it anyway.
 
