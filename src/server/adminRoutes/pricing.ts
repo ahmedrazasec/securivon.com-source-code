@@ -6,8 +6,13 @@ import { withAdminAuth } from "@/server/auth/adminApiHelper";
 import { container } from "@/server/container";
 
 /**
- * Installation Rates + Pricing Audit Log Admin route handlers. Not mounted
- * yet — see products.ts's header comment for why and how to activate.
+ * Installation Rates + Pricing Audit Log Admin route handlers.
+ *
+ * Mounted at src/app/api/admin/installation-rates/route.ts + .../[serviceType]/route.ts
+ * and src/app/api/admin/pricing-audit-log/route.ts + .../[entityType]/[entityId]/route.ts
+ * — those files re-export/adapt the functions below rather than
+ * duplicating logic. Edit request handling here; edit
+ * routing/param-adaptation there.
  */
 
 const installationRateSchema = z.object({

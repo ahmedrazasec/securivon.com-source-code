@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "pretypecheck": "next typegen",
     "typecheck": "tsc --noEmit",
-    "test": "VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest run"
+    "test": "cross-env VITE_CONFIG_NATIVE_IGNORE_WARNING=true vitest run"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.9.1",
@@ -26,10 +27,11 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
-    "@types/node": "^20",
+    "@types/node": "20.19.43",
     "@types/pg": "^8.23.1",
-    "@types/react": "^19",
+    "@types/react": "19.2.18",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "dotenv": "^17.4.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",

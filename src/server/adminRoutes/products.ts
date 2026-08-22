@@ -8,12 +8,10 @@ import { container } from "@/server/container";
 /**
  * Products Admin route handlers.
  *
- * NOT mounted at src/app/api/admin/products/route.ts yet — see this
- * project's tsconfig.json "exclude" comment and README "Known limitations"
- * for why. Move this file's exports into that location (and the [id]
- * variant into .../products/[id]/route.ts) once `npx prisma generate`
- * succeeds in your environment. The logic itself needs no changes to work
- * once mounted — this is complete, real Admin API code.
+ * Mounted at src/app/api/admin/products/route.ts (GET, POST) and
+ * src/app/api/admin/products/[id]/route.ts (GET, PATCH, DELETE) — those
+ * files re-export/adapt the functions below rather than duplicating logic.
+ * Edit request handling here; edit routing/param-adaptation there.
  */
 
 const productWriteSchema = z.object({

@@ -7,6 +7,7 @@ import { PrismaWarrantyRepository } from "@/server/repositories/prisma/warranty.
 import { PrismaPackageRepository } from "@/server/repositories/prisma/package.prisma";
 import { PrismaInstallationRateRepository } from "@/server/repositories/prisma/installationRate.prisma";
 import { PrismaPricingAuditLogRepository } from "@/server/repositories/prisma/pricingAuditLog.prisma";
+import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUser.prisma";
 import { ProductAdminService } from "@/server/services/productService";
 import { PackageAdminService } from "@/server/services/packageService";
 import { InstallationRateAdminService } from "@/server/services/installationRateService";
@@ -39,4 +40,11 @@ export const container = {
   packages: new PackageAdminService(new PrismaPackageRepository(), auditLog),
   installationRates: new InstallationRateAdminService(new PrismaInstallationRateRepository(), auditLog),
   auditLog,
+  // Real Admin authentication backend. NOT wired into
+  // src/server/repositories/adminUserRepository.ts's getAdminUserRepository()
+  // yet — see that file's updated header comment for exactly why (empirically
+  // verified to break both `tsc --noEmit` and `next build` in an environment
+  // where `npx prisma generate` hasn't succeeded) and the one-line change
+  // required to activate it once it has.
+  adminUsers: new PrismaAdminUserRepository(),
 };

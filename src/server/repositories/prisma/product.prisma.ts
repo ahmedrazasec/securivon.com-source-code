@@ -7,6 +7,18 @@ import type { ProductRepository, ProductRecord, ProductCreateInput, ProductUpdat
  * adminUser.prisma.ts for the full explanation (same reason applies to
  * every file in this directory).
  */
+type ProductCreateData = Parameters<typeof prisma.product.create>[0]["data"];
+type ProductUpdateData = Parameters<typeof prisma.product.update>[0]["data"];
+
+/**
+ * Boundary casts below: same reasoning as PrismaPackageRepository — the
+ * domain ProductCreateInput type is deliberately Prisma-free (images/
+ * specifications are `unknown` JSON blobs, customerPriceType/
+ * installationPriceType are plain `string`), while every other field
+ * already matches Prisma's generated shape exactly. Narrowing here, not in
+ * src/server/repositories/types.ts, keeps business logic/tests decoupled
+ * from the generated client.
+ */
 export class PrismaProductRepository implements ProductRepository {
   async findById(id: string): Promise<ProductRecord | null> {
     const p = await prisma.product.findUnique({ where: { id } });
@@ -31,12 +43,30 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   async create(input: ProductCreateInput): Promise<ProductRecord> {
-    const created = await prisma.product.create({ data: input });
+    const data: ProductCreateData = {
+      ...input,
+      images: input.images as ProductCreateData["images"],
+      specifications: input.specifications as ProductCreateData["specifications"],
+      customerPriceType: input.customerPriceType as ProductCreateData["customerPriceType"],
+      installationPriceType: input.installationPriceType as ProductCreateData["installationPriceType"],
+    };
+    const created = await prisma.product.create({ data });
     return toRecord(created);
   }
 
   async update(id: string, input: ProductUpdateInput): Promise<ProductRecord> {
-    const updated = await prisma.product.update({ where: { id }, data: input });
+    const data: ProductUpdateData = {
+      ...input,
+      images: input.images !== undefined ? (input.images as ProductUpdateData["images"]) : undefined,
+      specifications: input.specifications !== undefined ? (input.specifications as ProductUpdateData["specifications"]) : undefined,
+      customerPriceType:
+        input.customerPriceType !== undefined ? (input.customerPriceType as ProductUpdateData["customerPriceType"]) : undefined,
+      installationPriceType:
+        input.installationPriceType !== undefined
+          ? (input.installationPriceType as ProductUpdateData["installationPriceType"])
+          : undefined,
+    };
+    const updated = await prisma.product.update({ where: { id }, data });
     return toRecord(updated);
   }
 

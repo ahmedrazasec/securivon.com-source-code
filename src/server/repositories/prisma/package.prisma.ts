@@ -12,6 +12,21 @@ import type {
  * Real, database-backed PackageRepository, including PackageItem
  * management. Excluded from tsconfig — see adminUser.prisma.ts.
  */
+type PackageCreateData = Parameters<typeof prisma.package.create>[0]["data"];
+type PackageUpdateData = Parameters<typeof prisma.package.update>[0]["data"];
+
+/**
+ * Boundary casts below: PackageCreateInput (src/server/repositories/types.ts)
+ * is deliberately Prisma-free — `category` and `priceType` are plain
+ * `string` there so business logic/tests never depend on generated Prisma
+ * types. Prisma's generated client expects its own PackageCategory/
+ * PriceType enum types for these two fields specifically (every other
+ * field already matches). The route layer's Zod schema
+ * (src/server/adminRoutes/*.ts) already validates these against the exact
+ * enum members before this repository ever sees them, so narrowing here is
+ * safe, not a bypass of validation — just satisfying TypeScript at the one
+ * layer that's allowed to know about Prisma's generated types.
+ */
 export class PrismaPackageRepository implements PackageRepository {
   async findById(id: string) {
     const p = await prisma.package.findUnique({ where: { id }, include: { items: { orderBy: { displayOrder: "asc" } } } });
@@ -22,11 +37,21 @@ export class PrismaPackageRepository implements PackageRepository {
     return rows.map(toRecord);
   }
   async create(input: PackageCreateInput) {
-    const created = await prisma.package.create({ data: input, include: { items: true } });
+    const data: PackageCreateData = {
+      ...input,
+      category: input.category as PackageCreateData["category"],
+      priceType: input.priceType as PackageCreateData["priceType"],
+    };
+    const created = await prisma.package.create({ data, include: { items: true } });
     return toRecord(created);
   }
   async update(id: string, input: PackageUpdateInput) {
-    const updated = await prisma.package.update({ where: { id }, data: input, include: { items: true } });
+    const data: PackageUpdateData = {
+      ...input,
+      category: input.category !== undefined ? (input.category as PackageUpdateData["category"]) : undefined,
+      priceType: input.priceType !== undefined ? (input.priceType as PackageUpdateData["priceType"]) : undefined,
+    };
+    const updated = await prisma.package.update({ where: { id }, data, include: { items: true } });
     return toRecord(updated);
   }
   async archive(id: string) {
@@ -59,6 +84,8 @@ type PackageWithItems = NonNullable<Awaited<ReturnType<typeof prisma.package.fin
   items: Awaited<ReturnType<typeof prisma.packageItem.findMany>>;
 };
 
+type PackageItemRow = PackageWithItems["items"][number];
+
 function toRecord(p: PackageWithItems): PackageRecord {
   return {
     id: p.id,
@@ -72,7 +99,7 @@ function toRecord(p: PackageWithItems): PackageRecord {
     priceValueMax: p.priceValueMax ? Number(p.priceValueMax) : null,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
-    items: p.items.map((i) => ({
+    items: p.items.map((i: PackageItemRow) => ({
       id: i.id,
       packageId: i.packageId,
       productId: i.productId,

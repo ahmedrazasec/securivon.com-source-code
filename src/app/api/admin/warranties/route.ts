@@ -1,0 +1,6 @@
+/**
+ * Real mount point for the Warranties Admin API. All logic lives in
+ * src/server/adminRoutes/catalogueSupport.ts — this file only re-exports
+ * it at its real Next.js route path. Do not add logic here.
+ */
+export { listWarranties as GET, createWarranty as POST } from "@/server/adminRoutes/catalogueSupport";

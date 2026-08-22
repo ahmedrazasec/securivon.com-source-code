@@ -1,25 +1,30 @@
 import "server-only";
 import { verifyPassword } from "@/server/auth/password";
+import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUser.prisma";
 
 /**
  * AdminUser repository.
  *
- * INTERIM IMPLEMENTATION NOTE: this currently reads a single bootstrap admin
- * credential from environment variables (ADMIN_BOOTSTRAP_EMAIL /
- * ADMIN_BOOTSTRAP_PASSWORD_HASH) instead of querying the AdminUser table.
- * This is a deliberate, standard bootstrap pattern (create the first admin
- * account out-of-band before any user-management UI exists) — NOT a
- * shortcut being passed off as the final design.
+ * ACTIVE IMPLEMENTATION: `getAdminUserRepository()` below returns
+ * `PrismaAdminUserRepository` — real, database-backed Admin login against
+ * the AdminUser table via Prisma 7 / the driver adapter / Supabase
+ * PostgreSQL. This swap was prepared and applied in a sandbox that cannot
+ * itself run `npx prisma generate` (see note below) — confirm it actually
+ * compiles and logs in correctly on Windows before relying on it.
  *
- * The AdminUser Prisma model (prisma/schema.prisma) is the real source of
- * truth going forward. Swap `envBootstrapAdminUserRepository` for a
- * Prisma-backed implementation (querying `prisma.adminUser.findUnique`) the
- * first time `npx prisma generate` succeeds in an environment with network
- * access to binaries.prisma.sh — see README "Known limitations."
+ * `EnvBootstrapAdminUserRepository` (below) is kept as a documented
+ * break-glass fallback — a way to log in with ADMIN_BOOTSTRAP_EMAIL /
+ * ADMIN_BOOTSTRAP_PASSWORD_HASH if the AdminUser table is ever empty or
+ * unreachable — but is no longer the default. Do not remove those env
+ * vars from README/.env.example while this fallback class still exists.
  *
- * Kept dependency-free from `@prisma/client` for now specifically so the
- * login flow (this file + the session API route) can be fully implemented,
- * type-checked, and unit-tested in this sandbox despite that limitation.
+ * SANDBOX BUILD NOTE — this environment cannot verify this change compiles
+ * or runs, because `npx prisma generate` fails here (no network path to
+ * binaries.prisma.sh — confirmed directly, not assumed). Expect
+ * `npm run typecheck` and `npm run build` to fail in THIS sandbox with
+ * "Cannot find module '@/generated/prisma/client'" until run somewhere
+ * with a generated client. This is expected and does not indicate a bug in
+ * the change itself — verify with the actual results on Windows.
  */
 
 export interface AdminUserRecord {
@@ -34,7 +39,7 @@ export interface AdminUserRepository {
   findByEmail(email: string): Promise<AdminUserRecord | null>;
 }
 
-class EnvBootstrapAdminUserRepository implements AdminUserRepository {
+export class EnvBootstrapAdminUserRepository implements AdminUserRepository {
   async findByEmail(email: string): Promise<AdminUserRecord | null> {
     const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL;
     const bootstrapPasswordHash = process.env.ADMIN_BOOTSTRAP_PASSWORD_HASH;
@@ -53,7 +58,7 @@ class EnvBootstrapAdminUserRepository implements AdminUserRepository {
 }
 
 export function getAdminUserRepository(): AdminUserRepository {
-  return new EnvBootstrapAdminUserRepository();
+  return new PrismaAdminUserRepository();
 }
 
 export async function authenticateAdmin(

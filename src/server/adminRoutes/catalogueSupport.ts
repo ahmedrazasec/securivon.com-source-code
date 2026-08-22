@@ -7,9 +7,13 @@ import { container } from "@/server/container";
 
 /**
  * Category / Brand / Supplier / Warranty Admin route handlers.
- * Not mounted yet — see products.ts's header comment for why and how to activate.
- * Grouped in one file since each is a straightforward CRUD set over a
- * simple entity, unlike Products/Packages which have real business logic.
+ *
+ * Mounted at src/app/api/admin/{categories,brands,suppliers,warranties}/
+ * route.ts and .../[id]/route.ts — those files re-export/adapt the
+ * functions below rather than duplicating logic. Edit request handling
+ * here; edit routing/param-adaptation there. Grouped in one file since
+ * each is a straightforward CRUD set over a simple entity, unlike
+ * Products/Packages which have real business logic.
  */
 
 // --- Categories ---

@@ -31,32 +31,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": [
-    "node_modules",
-    // SANDBOX-ONLY, TEMPORARY: every file below imports the generated Prisma
-    // Client (from src/generated/prisma/, per prisma/schema.prisma's
-    // generator.output — Prisma 7's "prisma-client" generator, directly or
-    // transitively via src/server/db/client.ts). That directory only exists
-    // after `npx prisma generate` succeeds, which needs network access to
-    // binaries.prisma.sh — not reachable in the environment this scaffold
-    // was built in (see README "Known limitations"). All of this is real,
-    // reviewable production code, not a stub or mock, and is written for
-    // Prisma 7's driver-adapter architecture (PrismaPg + explicit adapter
-    // at the PrismaClient constructor — see src/server/db/client.ts for the
-    // full explanation). IMPORTANT: real Next.js App Router route.ts files
-    // under src/app/api/** are deliberately NOT among these exclusions —
-    // Next.js auto-generates a typed-routes validator
-    // (.next/types/validator.ts) that imports every route file regardless
-    // of tsconfig excludes, so a route.ts here that imports Prisma would
-    // break the build no matter what. That's why the route *logic* for
-    // Prisma-backed Admin endpoints lives in src/server/adminRoutes/
-    // instead of src/app/api/admin/.../route.ts — move each file into its
-    // real route.ts location once `prisma generate` succeeds, at which
-    // point this whole exclusion block (except this explanatory note,
-    // which can go) is removed too.
-    "src/server/db/client.ts",
-    "src/server/repositories/prisma/**/*.ts",
-    "src/server/container.ts",
-    "src/server/adminRoutes/**/*.ts"
-  ]
+  "exclude": ["node_modules"]
 }
