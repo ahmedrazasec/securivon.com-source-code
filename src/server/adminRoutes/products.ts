@@ -35,6 +35,7 @@ const productWriteSchema = z.object({
   installationPriceValueMax: z.number().nullable().optional(),
   pricingStatus: z.enum(["VERIFIED", "NEEDS_REVIEW", "STALE"]).default("NEEDS_REVIEW"),
   availability: z.enum(["IN_STOCK", "LOW_STOCK", "OUT_OF_STOCK", "ORDER_REQUIRED", "DISCONTINUED", "UNKNOWN"]),
+  verificationDate: z.string().nullable().optional(),
   configuratorTags: z.array(z.string()).default([]),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
 });
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
       specifications: null,
       priceEffectiveDate: null,
       priceReviewDueDate: null,
-      verificationDate: null,
+      verificationDate: parsed.data.verificationDate ?? null,
       sourceUrl: null,
     });
     return NextResponse.json({ product }, { status: 201 });

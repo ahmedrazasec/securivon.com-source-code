@@ -6,11 +6,15 @@ import { PrismaSupplierRepository } from "@/server/repositories/prisma/supplier.
 import { PrismaWarrantyRepository } from "@/server/repositories/prisma/warranty.prisma";
 import { PrismaPackageRepository } from "@/server/repositories/prisma/package.prisma";
 import { PrismaInstallationRateRepository } from "@/server/repositories/prisma/installationRate.prisma";
+import { PrismaPricingTierRepository } from "@/server/repositories/prisma/pricingTier.prisma";
+import { PrismaCablingRateRepository } from "@/server/repositories/prisma/cablingRate.prisma";
+import { PrismaRoundingRuleRepository } from "@/server/repositories/prisma/roundingRule.prisma";
 import { PrismaPricingAuditLogRepository } from "@/server/repositories/prisma/pricingAuditLog.prisma";
 import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUser.prisma";
 import { ProductAdminService } from "@/server/services/productService";
 import { PackageAdminService } from "@/server/services/packageService";
 import { InstallationRateAdminService } from "@/server/services/installationRateService";
+import { PricingConfigAdminService } from "@/server/services/pricingConfigService";
 
 /**
  * Application container — the single place that wires real, database-backed
@@ -39,6 +43,12 @@ export const container = {
   warranties: new PrismaWarrantyRepository(),
   packages: new PackageAdminService(new PrismaPackageRepository(), auditLog),
   installationRates: new InstallationRateAdminService(new PrismaInstallationRateRepository(), auditLog),
+  pricingConfig: new PricingConfigAdminService(
+    new PrismaPricingTierRepository(),
+    new PrismaCablingRateRepository(),
+    new PrismaRoundingRuleRepository(),
+    auditLog
+  ),
   auditLog,
   // Real Admin authentication backend. NOT wired into
   // src/server/repositories/adminUserRepository.ts's getAdminUserRepository()

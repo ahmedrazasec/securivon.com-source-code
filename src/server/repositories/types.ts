@@ -222,6 +222,68 @@ export interface InstallationRateRepository {
   upsert(serviceType: InstallationRateRecord["serviceType"], input: InstallationRateUpdateInput): Promise<InstallationRateRecord>;
 }
 
+/**
+ * PricingTier — reused as both "camera coverage tier" and "recorder tier"
+ * rows via a serviceType naming convention (see
+ * src/server/pricing/rateSetLoader.ts): "CCTV_COVERAGE_<tierId>" (e.g.
+ * "CCTV_COVERAGE_STANDARD") for coverage tiers, "CCTV_RECORDER" for
+ * recorder tiers (maxQuantity = camera capacity). Genuinely multi-row,
+ * unlike InstallationRate/CablingRate/RoundingRule — Admin creates one row
+ * per tier.
+ */
+export interface PricingTierRecord {
+  id: string;
+  serviceType: string;
+  minQuantity: number;
+  maxQuantity: number | null;
+  unitPrice: number;
+  verificationDate: string | null;
+}
+export type PricingTierCreateInput = Omit<PricingTierRecord, "id">;
+export type PricingTierUpdateInput = Partial<PricingTierCreateInput>;
+
+export interface PricingTierRepository {
+  list(): Promise<PricingTierRecord[]>;
+  create(input: PricingTierCreateInput): Promise<PricingTierRecord>;
+  update(id: string, input: PricingTierUpdateInput): Promise<PricingTierRecord>;
+  delete(id: string): Promise<void>;
+}
+
+/**
+ * CablingRate — treated as a single "current rate" settings row (Admin
+ * edits "the" cabling rate), matching how the rate-set loader consumes it
+ * (picks the single most-recently-updated row, not discriminated by
+ * cableType). A genuine multi-cable-type catalogue is a legitimate future
+ * enhancement, not built here to avoid inventing an ambiguous UX the
+ * loader doesn't actually use yet.
+ */
+export interface CablingRateRecord {
+  id: string;
+  cableType: string;
+  ratePerMeter: number;
+  includedAllowancePerCamera: number;
+  verificationDate: string | null;
+}
+export type CablingRateUpdateInput = Partial<Omit<CablingRateRecord, "id">>;
+
+export interface CablingRateRepository {
+  getCurrent(): Promise<CablingRateRecord | null>;
+  upsert(input: CablingRateUpdateInput): Promise<CablingRateRecord>;
+}
+
+/** RoundingRule — single global settings row, same singleton pattern as CablingRate. */
+export interface RoundingRuleRecord {
+  id: string;
+  granularity: number;
+  direction: "NEAREST" | "UP" | "DOWN";
+}
+export type RoundingRuleUpdateInput = Partial<Omit<RoundingRuleRecord, "id">>;
+
+export interface RoundingRuleRepository {
+  getCurrent(): Promise<RoundingRuleRecord | null>;
+  upsert(input: RoundingRuleUpdateInput): Promise<RoundingRuleRecord>;
+}
+
 export interface PricingAuditLogRecord {
   id: string;
   adminUserId: string;

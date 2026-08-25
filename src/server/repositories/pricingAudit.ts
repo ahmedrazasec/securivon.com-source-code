@@ -37,10 +37,17 @@ const INSTALLATION_RATE_PRICING_FIELDS = [
 
 const PACKAGE_PRICING_FIELDS = ["priceType", "priceValue", "priceValueMax", "status"] as const;
 
+const PRICING_TIER_PRICING_FIELDS = ["serviceType", "minQuantity", "maxQuantity", "unitPrice"] as const;
+const CABLING_RATE_PRICING_FIELDS = ["cableType", "ratePerMeter", "includedAllowancePerCamera"] as const;
+const ROUNDING_RULE_PRICING_FIELDS = ["granularity", "direction"] as const;
+
 const PRICING_RELEVANT_FIELDS: Record<string, readonly string[]> = {
   Product: PRODUCT_PRICING_FIELDS,
   InstallationRate: INSTALLATION_RATE_PRICING_FIELDS,
   Package: PACKAGE_PRICING_FIELDS,
+  PricingTier: PRICING_TIER_PRICING_FIELDS,
+  CablingRate: CABLING_RATE_PRICING_FIELDS,
+  RoundingRule: ROUNDING_RULE_PRICING_FIELDS,
 };
 
 function stringify(value: unknown): string | null {

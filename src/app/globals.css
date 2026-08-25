@@ -1,38 +1,57 @@
 @import "tailwindcss";
 
 /*
- * Securivon design tokens — foundation only.
+ * Securivon design tokens.
  *
- * These map the palette approved in Phase 3 (slate/navy + restrained sky
- * accent, built from Tailwind's core palette rather than arbitrary hex —
- * see Phase 3 §J) onto Tailwind v4's CSS-first `@theme` convention, which
- * replaces the old `tailwind.config.js` color extension approach used in
- * Tailwind v3. Confirmed against this project's actual installed Tailwind
- * version (v4) rather than assumed from general familiarity.
- *
- * The full component library (buttons, cards, forms, etc. per Phase 3 §J/§K)
- * is NOT ported here yet — that happens in a later UI-focused development
- * stage. This file only establishes the token layer they'll build on.
+ * Direction: professional security/technology company, not a template.
+ * Deep ink-navy + warm off-white base, one controlled cyan-blue accent used
+ * sparingly (signal/status/CTA only — never decorative). No gradients, no
+ * glassmorphism, no glow. Per securivon-web-design skill.
  */
 :root {
-  --background: #ffffff;
-  --foreground: #0f172a; /* slate-900 */
+  --color-ink: #0b1220; /* near-black navy — primary text, dark surfaces */
+  --color-ink-soft: #1c2534; /* secondary dark surface (footer, header-on-dark) */
+  --color-paper: #f8f7f4; /* warm off-white base, not stark #fff */
+  --color-paper-raised: #ffffff; /* cards/panels on top of paper */
+  --color-line: #e4e1d9; /* hairline borders on paper */
+  --color-line-dark: #2a3446; /* hairline borders on ink surfaces */
+  --color-slate: #5b6472; /* secondary/muted text on paper */
+  --color-slate-onink: #96a0b3; /* secondary/muted text on ink */
+  --color-accent: #0e7490; /* controlled cyan-blue — CTAs, links, status only */
+  --color-accent-strong: #155e75;
+  --color-accent-soft: #e6f1f3; /* accent-tinted background, sparing use */
+  --color-warn: #b45309; /* NEEDS_REVIEW / quote-only signal, amber not red */
+
+  --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-ibm-plex-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-paper: var(--color-paper);
+  --color-paper-raised: var(--color-paper-raised);
+  --color-line: var(--color-line);
+  --color-line-dark: var(--color-line-dark);
+  --color-slate: var(--color-slate);
+  --color-slate-onink: var(--color-slate-onink);
+  --color-accent: var(--color-accent);
+  --color-accent-strong: var(--color-accent-strong);
+  --color-accent-soft: var(--color-accent-soft);
+  --color-warn: var(--color-warn);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display);
 }

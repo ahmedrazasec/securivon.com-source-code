@@ -1,34 +1,54 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import "./globals.css";
 
 /**
- * Root layout — foundation stage only.
+ * Root layout.
  *
- * NOTE: next/font/google (the create-next-app default) fetches font files
- * from fonts.googleapis.com at build time. That domain was not reachable in
- * the sandbox this scaffold was built in, so the default Geist/Geist Mono
- * font loading was removed in favor of a plain system-font stack here.
- * This is not a design decision — the real typeface choice (Space Grotesk +
- * IBM Plex Sans, per Phase 3 §J) is a later UI-development-stage concern,
- * not part of this foundation. Whoever picks that up should evaluate
- * next/font/local (self-hosted, no build-time fetch) as the production
- * approach, since it avoids this exact limitation regardless of environment.
+ * Deliberately minimal — fonts and metadata only. Site chrome (header/
+ * footer) lives in src/app/(public)/layout.tsx via a route group, so
+ * /admin/** (which has its own AdminNav) isn't wrapped in marketing
+ * navigation. Route groups don't affect the URL: (public)/page.tsx still
+ * serves at "/".
+ *
+ * Fonts are self-hosted via next/font/local, not next/font/google — the
+ * Google Fonts CDN approach failed identically on both the sandbox and the
+ * real Windows dev machine ("issue establishing a connection... fonts.
+ * googleapis.com"), so this isn't a sandbox-only workaround being deferred
+ * for later; it's the actual fix, verified as the fix by removing the
+ * network dependency entirely. Files are the official variable-font TTFs
+ * from Google's own open-source font repository (github.com/google/fonts),
+ * SIL Open Font License (see src/app/fonts/*-OFL.txt) — same fonts,
+ * self-hosted, zero build-time network calls.
  */
 
+const spaceGrotesk = localFont({
+  src: "./fonts/SpaceGrotesk-Variable.ttf",
+  weight: "300 700",
+  variable: "--font-space-grotesk",
+  display: "swap",
+});
+
+const ibmPlexSans = localFont({
+  src: "./fonts/IBMPlexSans-Variable.ttf",
+  weight: "400 700",
+  variable: "--font-ibm-plex-sans",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "Securivon — Production Foundation",
-  description: "Securivon CCTV & Security Solutions — production build in progress.",
+  title: {
+    default: "Securivon — CCTV & Security Solutions in Pakistan",
+    template: "%s — Securivon",
+  },
+  description:
+    "Professional CCTV, surveillance, access control, and security system installation and maintenance across Pakistan.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className="h-full antialiased">
-      <body
-        className="min-h-full flex flex-col"
-        style={{ fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif" }}
-      >
-        {children}
-      </body>
+    <html lang="en" className={`h-full antialiased ${spaceGrotesk.variable} ${ibmPlexSans.variable}`}>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

@@ -6,8 +6,14 @@ import { withAdminAuth } from "@/server/auth/adminApiHelper";
 import { container } from "@/server/container";
 
 /**
- * Packages (+ PackageItem) Admin route handlers. Not mounted yet — see
- * products.ts's header comment for why and how to activate.
+ * Packages (+ PackageItem) Admin route handlers.
+ *
+ * Mounted at src/app/api/admin/packages/route.ts (GET, POST),
+ * .../[id]/route.ts (PATCH, DELETE), .../[id]/items/route.ts (POST),
+ * .../[id]/items/[itemId]/route.ts (PATCH, DELETE), and
+ * .../[id]/items/reorder/route.ts (POST) — those files re-export/adapt
+ * the functions below rather than duplicating logic. Edit request
+ * handling here; edit routing/param-adaptation there.
  */
 
 const packageSchema = z.object({
