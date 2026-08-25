@@ -112,9 +112,18 @@ export async function POST(request: Request) {
     const siteSurveyRequired = surveyCheck.required;
     const reasons = [...surveyCheck.reasons, ...(rateSet ? [] : missingReasons)];
 
+    // Snapshot of the specific rounding/tax/discount rules actually applied
+    // — these are Admin-editable and could change later, so this is what
+    // makes a future Quote's numbers historically reproducible even if the
+    // live rates change (see Quote.pricingRulesSnapshot in schema.prisma).
+    const pricingRulesSnapshot =
+      !siteSurveyRequired && rateSet
+        ? { rounding: rateSet.rounding, tax: rateSet.tax ?? null, discount: rateSet.discount ?? null }
+        : null;
+
     const computedResult = siteSurveyRequired
       ? { siteSurveyRequired: true, reasons }
-      : { siteSurveyRequired: false, estimate };
+      : { siteSurveyRequired: false, estimate, pricingRulesSnapshot };
 
     type ConfiguratorSessionCreateData = Parameters<typeof prisma.configuratorSession.create>[0]["data"];
 
@@ -142,5 +151,34 @@ export async function POST(request: Request) {
       { error: "Something went wrong. Please try again or contact us on WhatsApp." },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Fetches a safe, customer-facing summary of a ConfiguratorSession — used
+ * to carry the customer's configuration context into the Request Quote /
+ * Site Survey form (Stage 3C), instead of making them re-enter everything.
+ * Nothing returned here is more sensitive than what was already shown to
+ * this same customer in the browser at Configurator-result time — no
+ * internal pricing-rule details, no other customers' data.
+ */
+export async function GET(_request: Request, sessionId: string) {
+  try {
+    const session = await prisma.configuratorSession.findUnique({ where: { id: sessionId } });
+    if (!session) {
+      return NextResponse.json({ error: "Configuration not found." }, { status: 404 });
+    }
+
+    const result = session.computedResult as { siteSurveyRequired?: boolean; estimate?: { low: number; high: number } | null } | null;
+
+    return NextResponse.json({
+      sessionId: session.id,
+      propertyType: session.propertyType,
+      siteSurveyRequired: result?.siteSurveyRequired ?? true,
+      estimate: result?.estimate ?? null,
+    });
+  } catch (error) {
+    console.error("[configurator-session-fetch-error]", error);
+    return NextResponse.json({ error: "Something went wrong." }, { status: 500 });
   }
 }

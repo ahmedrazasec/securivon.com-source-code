@@ -55,6 +55,7 @@ type EstimateResult = {
 } | null;
 
 type ConfiguratorResponse = {
+  sessionId: string;
   siteSurveyRequired: boolean;
   reasons: string[];
   estimate: EstimateResult;
@@ -316,7 +317,7 @@ function QuoteResult({ result }: { result: ConfiguratorResponse }) {
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/request-quote"
+            href={`/request-quote?configuratorSessionId=${result.sessionId}`}
             className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
           >
             Book a Site Survey
@@ -344,7 +345,7 @@ function QuoteResult({ result }: { result: ConfiguratorResponse }) {
       <p className="mt-3 text-sm font-medium text-warn">Estimated price — final quotation confirmed after site survey.</p>
       <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
         <Link
-          href="/request-quote"
+          href={`/request-quote?configuratorSessionId=${result.sessionId}`}
           className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
         >
           Request Final Quote
