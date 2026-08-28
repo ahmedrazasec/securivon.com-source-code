@@ -101,6 +101,17 @@ describe("ProductAdminService", () => {
     await expect(service.update("admin-1", "nonexistent-id", { customerPriceValue: 1 })).rejects.toThrow();
   });
 
+  it("findBySlug() passes through to the repository", async () => {
+    await service.create("admin-1", baseProductInput({ slug: "find-me" }));
+    const found = await service.findBySlug("find-me");
+    expect(found?.slug).toBe("find-me");
+  });
+
+  it("findBySlug() returns null for a slug that does not exist", async () => {
+    const found = await service.findBySlug("does-not-exist");
+    expect(found).toBeNull();
+  });
+
   it("list() supports filtering by status", async () => {
     await service.create("admin-1", baseProductInput({ slug: "a", status: "DRAFT" }));
     await service.create("admin-1", baseProductInput({ slug: "b", status: "PUBLISHED" }));

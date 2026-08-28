@@ -11,6 +11,9 @@ import { PrismaCablingRateRepository } from "@/server/repositories/prisma/cablin
 import { PrismaRoundingRuleRepository } from "@/server/repositories/prisma/roundingRule.prisma";
 import { PrismaPricingAuditLogRepository } from "@/server/repositories/prisma/pricingAuditLog.prisma";
 import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUser.prisma";
+import { PrismaLeadRepository } from "@/server/repositories/prisma/lead.prisma";
+import { PrismaQuoteRepository } from "@/server/repositories/prisma/quote.prisma";
+import { PrismaSiteSurveyRequestRepository } from "@/server/repositories/prisma/siteSurveyRequest.prisma";
 import { ProductAdminService } from "@/server/services/productService";
 import { PackageAdminService } from "@/server/services/packageService";
 import { InstallationRateAdminService } from "@/server/services/installationRateService";
@@ -50,6 +53,11 @@ export const container = {
     auditLog
   ),
   auditLog,
+  // Read-only Admin visibility into the public submission pipeline
+  // (Lead/Quote/SiteSurveyRequest). No write methods — see types.ts.
+  leads: new PrismaLeadRepository(),
+  quotes: new PrismaQuoteRepository(),
+  siteSurveyRequests: new PrismaSiteSurveyRequestRepository(),
   // Real Admin authentication backend. NOT wired into
   // src/server/repositories/adminUserRepository.ts's getAdminUserRepository()
   // yet — see that file's updated header comment for exactly why (empirically

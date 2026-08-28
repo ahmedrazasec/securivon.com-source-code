@@ -176,10 +176,30 @@ export interface PackageRecord {
   name: string;
   targetCustomerDescription: string | null;
   category: string;
+  cameraCount: number | null;
+  cameraTypeSummary: string | null;
+  recorderProductId: string | null;
+  storageSummary: string | null;
+  networkingSummary: string | null;
+  cablingAssumptionText: string | null;
+  powerSummary: string | null;
+  installationSummary: string | null;
+  warrantyId: string | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   priceType: string;
   priceValue: number | null;
   priceValueMax: number | null;
+  /** ISO date string, or null if this package's price has never been verified — see src/server/pricing/pricingStatus.ts-style honesty rule applied in src/server/serializers/package.ts. */
+  priceVerificationDate: string | null;
+  /**
+   * Admin-authored initial answers for the "Configure This Package" CTA
+   * (see src/server/publicRoutes/packageCatalogue.ts /
+   * src/server/validation/configuratorPrefill.ts for the schema this is
+   * validated against before ever being used). Loosely typed here — same
+   * reasoning as Product.images/specifications — so this file has zero
+   * dependency on the generated Prisma client.
+   */
+  configuratorPrefill: unknown;
   createdAt: string;
   updatedAt: string;
   items: PackageItemRecord[];
@@ -191,6 +211,7 @@ export type PackageItemInput = Omit<PackageItemRecord, "id" | "packageId">;
 
 export interface PackageRepository {
   findById(id: string): Promise<PackageRecord | null>;
+  findBySlug(slug: string): Promise<PackageRecord | null>;
   list(): Promise<PackageRecord[]>;
   create(input: PackageCreateInput): Promise<PackageRecord>;
   update(id: string, input: PackageUpdateInput): Promise<PackageRecord>;
@@ -301,4 +322,116 @@ export interface PricingAuditLogRepository {
   create(input: PricingAuditLogCreateInput): Promise<PricingAuditLogRecord>;
   listForEntity(entityType: string, entityId: string): Promise<PricingAuditLogRecord[]>;
   listRecent(limit?: number): Promise<PricingAuditLogRecord[]>;
+}
+
+// ----------------------------------------------------------------------------
+// Leads / Quotes / Site Surveys — READ-ONLY admin visibility.
+//
+// These interfaces intentionally expose no create/update/deactivate methods.
+// The public submission path (src/server/publicRoutes/leads.ts /
+// src/app/api/leads/route.ts) is the only writer for Customer/Lead/
+// SiteSurveyRequest/Quote right now — Admin's job here is visibility, not
+// mutation, per the explicit "read-only dashboard first" instruction. If
+// status-editing (e.g. Lead.status, SiteSurveyRequest.status) is added
+// later, it belongs in a dedicated write method added deliberately, not
+// bolted onto list()/findById().
+// ----------------------------------------------------------------------------
+
+/** Minimal Customer shape as embedded in Lead-related admin views. PII — Admin-only, never sent to public serializers. */
+export interface CustomerSummary {
+  id: string;
+  name: string;
+  phone: string;
+  whatsappNumber: string | null;
+  email: string | null;
+  addressArea: string | null;
+  source: "CONFIGURATOR" | "REQUEST_QUOTE_FORM" | "WHATSAPP_DIRECT" | "PHONE";
+  createdAt: string;
+}
+
+export interface LeadListRecord {
+  id: string;
+  journeySource: "CONFIGURATOR" | "BROWSE_PACKAGE" | "BROWSE_SERVICE" | "DIRECT_CONTACT";
+  status: "NEW" | "CONTACTED" | "SITE_SURVEY_SCHEDULED" | "QUOTED" | "WON" | "LOST";
+  assignedTo: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer: CustomerSummary;
+  quoteCount: number;
+  siteSurveyRequestCount: number;
+}
+
+export interface LeadDetailRecord extends LeadListRecord {
+  quotes: QuoteListRecord[];
+  siteSurveyRequests: SiteSurveyRequestListRecord[];
+}
+
+export interface LeadRepository {
+  list(filter?: { status?: LeadListRecord["status"] }): Promise<LeadListRecord[]>;
+  findById(id: string): Promise<LeadDetailRecord | null>;
+}
+
+export interface QuoteItemRecord {
+  id: string;
+  itemType: "PRODUCT" | "PACKAGE" | "CUSTOM_LINE";
+  productId: string | null;
+  packageId: string | null;
+  description: string;
+  quantity: number;
+  unitPriceSnapshot: number;
+  lineTotal: number;
+}
+
+export interface QuoteListRecord {
+  id: string;
+  leadId: string;
+  packageId: string | null;
+  type: "CONFIGURATOR_ESTIMATE" | "PACKAGE_BASED" | "MANUAL_CUSTOM";
+  status: "DRAFT" | "SENT" | "ACCEPTED" | "EXPIRED";
+  totalEstimatedLow: number | null;
+  totalEstimatedHigh: number | null;
+  isEstimateOnly: boolean;
+  siteSurveyRequired: boolean;
+  revisedFromQuoteId: string | null;
+  validUntil: string | null;
+  createdAt: string;
+  updatedAt: string;
+  customer: CustomerSummary;
+}
+
+export interface QuoteDetailRecord extends QuoteListRecord {
+  // Full snapshots — Admin-only, exactly what was frozen at submission time.
+  // Never recalculated, never sent to public serializers.
+  configurationSnapshot: unknown;
+  pricingRulesSnapshot: unknown;
+  items: QuoteItemRecord[];
+}
+
+export interface QuoteRepository {
+  list(filter?: { status?: QuoteListRecord["status"] }): Promise<QuoteListRecord[]>;
+  findById(id: string): Promise<QuoteDetailRecord | null>;
+}
+
+export interface SiteSurveyRequestListRecord {
+  id: string;
+  leadId: string;
+  name: string;
+  phone: string;
+  propertyType: string;
+  location: string;
+  preferredDateTime: string | null;
+  configurationReference: string | null;
+  status: "REQUESTED" | "SCHEDULED" | "COMPLETED" | "CANCELLED";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SiteSurveyRequestDetailRecord extends SiteSurveyRequestListRecord {
+  notes: string | null;
+  customer: CustomerSummary;
+}
+
+export interface SiteSurveyRequestRepository {
+  list(filter?: { status?: SiteSurveyRequestListRecord["status"] }): Promise<SiteSurveyRequestListRecord[]>;
+  findById(id: string): Promise<SiteSurveyRequestDetailRecord | null>;
 }

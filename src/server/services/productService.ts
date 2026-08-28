@@ -55,6 +55,10 @@ export class ProductAdminService {
     return this.products.findById(id);
   }
 
+  async findBySlug(slug: string) {
+    return this.products.findBySlug(slug);
+  }
+
   private async writeAudit(
     adminUserId: string,
     action: "CREATE" | "UPDATE" | "ARCHIVE",

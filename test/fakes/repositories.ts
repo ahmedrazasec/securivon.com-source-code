@@ -38,6 +38,14 @@ import type {
   WarrantyRecord,
   WarrantyCreateInput,
   WarrantyUpdateInput,
+  CategoryRepository,
+  CategoryRecord,
+  CategoryCreateInput,
+  CategoryUpdateInput,
+  BrandRepository,
+  BrandRecord,
+  BrandCreateInput,
+  BrandUpdateInput,
 } from "@/server/repositories/types";
 
 export class InMemoryProductRepository implements ProductRepository {
@@ -134,11 +142,68 @@ export class InMemoryWarrantyRepository implements WarrantyRepository {
   }
 }
 
+export class InMemoryCategoryRepository implements CategoryRepository {
+  private records = new Map<string, CategoryRecord>();
+
+  async findById(id: string) {
+    return this.records.get(id) ?? null;
+  }
+  async list() {
+    return [...this.records.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+  async create(input: CategoryCreateInput) {
+    const now = new Date().toISOString();
+    const record: CategoryRecord = { ...input, id: randomUUID(), createdAt: now, updatedAt: now };
+    this.records.set(record.id, record);
+    return record;
+  }
+  async update(id: string, input: CategoryUpdateInput) {
+    const existing = this.records.get(id);
+    if (!existing) throw new Error(`Category ${id} not found`);
+    const updated = { ...existing, ...input, updatedAt: new Date().toISOString() };
+    this.records.set(id, updated);
+    return updated;
+  }
+  async deactivate(id: string) {
+    return this.update(id, { active: false });
+  }
+}
+
+export class InMemoryBrandRepository implements BrandRepository {
+  private records = new Map<string, BrandRecord>();
+
+  async findById(id: string) {
+    return this.records.get(id) ?? null;
+  }
+  async list() {
+    return [...this.records.values()];
+  }
+  async create(input: BrandCreateInput) {
+    const now = new Date().toISOString();
+    const record: BrandRecord = { ...input, id: randomUUID(), createdAt: now, updatedAt: now };
+    this.records.set(record.id, record);
+    return record;
+  }
+  async update(id: string, input: BrandUpdateInput) {
+    const existing = this.records.get(id);
+    if (!existing) throw new Error(`Brand ${id} not found`);
+    const updated = { ...existing, ...input, updatedAt: new Date().toISOString() };
+    this.records.set(id, updated);
+    return updated;
+  }
+  async deactivate(id: string) {
+    return this.update(id, { active: false });
+  }
+}
+
 export class InMemoryPackageRepository implements PackageRepository {
   private records = new Map<string, PackageRecord>();
 
   async findById(id: string) {
     return this.records.get(id) ?? null;
+  }
+  async findBySlug(slug: string) {
+    return [...this.records.values()].find((p) => p.slug === slug) ?? null;
   }
   async list() {
     return [...this.records.values()];

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Container } from "@/components/marketing/Primitives";
 
@@ -37,6 +38,70 @@ const DEFAULT_ANSWERS: Answers = {
   optionalServiceIds: [],
 };
 
+const PROPERTY_TYPES: PropertyType[] = ["house", "apartment", "shop", "office", "restaurant", "warehouse", "other"];
+const COVERAGE_TIERS: CoverageTier[] = ["standard", "wide", "high"];
+const STORAGE_TIERS: StorageTier[] = ["2w", "4w", "1m"];
+const CABLE_DISTANCES: CableDistance[] = ["short", "medium", "long"];
+
+/**
+ * Reads the "Configure This Package" prefill (src/app/(public)/packages/[slug]/page.tsx
+ * builds this query string from Package.configuratorPrefill via
+ * src/server/publicRoutes/packageCatalogue.ts's buildConfiguratorPrefillQuery).
+ *
+ * That function already validated the JSON against configuratorPrefillSchema
+ * before it ever became a URL, but this still re-validates every value
+ * defensively rather than trusting the URL — a URL can be shared, bookmarked,
+ * or hand-edited by anyone, so it's untrusted input at this boundary
+ * regardless of how it was generated. Any field that's missing or doesn't
+ * pass validation is simply left out, falling back to DEFAULT_ANSWERS.
+ */
+function parsePrefillFromSearchParams(params: URLSearchParams): Partial<Answers> {
+  const prefill: Partial<Answers> = {};
+
+  const propertyType = params.get("propertyType");
+  if (propertyType && (PROPERTY_TYPES as string[]).includes(propertyType)) prefill.propertyType = propertyType as PropertyType;
+
+  const cameraCount = params.get("cameraCount");
+  if (cameraCount !== null) {
+    const n = Number(cameraCount);
+    if (Number.isInteger(n) && n >= 1 && n <= 200) prefill.cameraCount = n;
+  }
+
+  const coverageTierId = params.get("coverageTierId");
+  if (coverageTierId && (COVERAGE_TIERS as string[]).includes(coverageTierId)) prefill.coverageTierId = coverageTierId as CoverageTier;
+
+  const storageTierId = params.get("storageTierId");
+  if (storageTierId && (STORAGE_TIERS as string[]).includes(storageTierId)) prefill.storageTierId = storageTierId as StorageTier;
+
+  const floors = params.get("floors");
+  if (floors !== null) {
+    const n = Number(floors);
+    if (Number.isInteger(n) && n >= 1 && n <= 50) prefill.floors = n;
+  }
+
+  const cableDistanceCategory = params.get("cableDistanceCategory");
+  if (cableDistanceCategory && (CABLE_DISTANCES as string[]).includes(cableDistanceCategory)) {
+    prefill.cableDistanceCategory = cableDistanceCategory as CableDistance;
+  }
+
+  const difficultAccess = params.get("difficultAccess");
+  if (difficultAccess === "true" || difficultAccess === "false") prefill.difficultAccess = difficultAccess === "true";
+
+  const needsConduitTrunking = params.get("needsConduitTrunking");
+  if (needsConduitTrunking === "true" || needsConduitTrunking === "false") prefill.needsConduitTrunking = needsConduitTrunking === "true";
+
+  const isNewCabling = params.get("isNewCabling");
+  if (isNewCabling === "true" || isNewCabling === "false") prefill.isNewCabling = isNewCabling === "true";
+
+  const wantsRemoteViewSetup = params.get("wantsRemoteViewSetup");
+  if (wantsRemoteViewSetup === "true" || wantsRemoteViewSetup === "false") prefill.wantsRemoteViewSetup = wantsRemoteViewSetup === "true";
+
+  const optionalServiceIds = params.getAll("optionalServiceIds").filter((v): v is "fire" | "intrusion" => v === "fire" || v === "intrusion");
+  if (optionalServiceIds.length > 0) prefill.optionalServiceIds = optionalServiceIds;
+
+  return prefill;
+}
+
 const PROPERTY_OPTIONS: { value: PropertyType; label: string }[] = [
   { value: "house", label: "Home" },
   { value: "apartment", label: "Apartment" },
@@ -64,8 +129,17 @@ type ConfiguratorResponse = {
 const TOTAL_STEPS = 5;
 
 export default function ConfiguratorPage() {
+  return (
+    <Suspense fallback={<Container className="py-20">&nbsp;</Container>}>
+      <ConfiguratorPageInner />
+    </Suspense>
+  );
+}
+
+function ConfiguratorPageInner() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
-  const [answers, setAnswers] = useState<Answers>(DEFAULT_ANSWERS);
+  const [answers, setAnswers] = useState<Answers>(() => ({ ...DEFAULT_ANSWERS, ...parsePrefillFromSearchParams(searchParams) }));
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ConfiguratorResponse | null>(null);
   const [error, setError] = useState<string | null>(null);

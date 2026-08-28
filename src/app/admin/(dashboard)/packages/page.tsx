@@ -39,14 +39,25 @@ interface Package {
   name: string;
   targetCustomerDescription: string | null;
   category: string;
+  cameraCount: number | null;
+  cameraTypeSummary: string | null;
+  recorderProductId: string | null;
+  storageSummary: string | null;
+  networkingSummary: string | null;
+  cablingAssumptionText: string | null;
+  powerSummary: string | null;
+  installationSummary: string | null;
+  warrantyId: string | null;
   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
   priceType: string;
   priceValue: number | null;
   priceValueMax: number | null;
+  priceVerificationDate: string | null;
+  configuratorPrefill: unknown;
   items: PackageItem[];
 }
 
-interface Product {
+interface Ref {
   id: string;
   name: string;
 }
@@ -60,20 +71,42 @@ type PkgFormState = {
   name: string;
   targetCustomerDescription: string;
   category: string;
+  cameraCount: string;
+  cameraTypeSummary: string;
+  recorderProductId: string;
+  storageSummary: string;
+  networkingSummary: string;
+  cablingAssumptionText: string;
+  powerSummary: string;
+  installationSummary: string;
+  warrantyId: string;
   status: string;
   priceType: string;
   priceValue: string;
   priceValueMax: string;
+  priceVerificationDate: string;
+  configuratorPrefillJson: string;
 };
 const EMPTY_PKG_FORM: PkgFormState = {
   slug: "",
   name: "",
   targetCustomerDescription: "",
   category: "HOME_STARTER",
+  cameraCount: "",
+  cameraTypeSummary: "",
+  recorderProductId: "",
+  storageSummary: "",
+  networkingSummary: "",
+  cablingAssumptionText: "",
+  powerSummary: "",
+  installationSummary: "",
+  warrantyId: "",
   status: "DRAFT",
   priceType: "QUOTE_ONLY",
   priceValue: "",
   priceValueMax: "",
+  priceVerificationDate: "",
+  configuratorPrefillJson: "",
 };
 
 type ItemFormState = {
@@ -101,7 +134,8 @@ function num(v: string): number | null {
 
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[] | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Ref[]>([]);
+  const [warranties, setWarranties] = useState<Ref[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -121,12 +155,14 @@ export default function PackagesPage() {
   async function loadAll() {
     setLoadError(null);
     try {
-      const [pkgRes, prodRes] = await Promise.all([
+      const [pkgRes, prodRes, warrRes] = await Promise.all([
         adminFetch<{ packages: Package[] }>("/api/admin/packages"),
-        adminFetch<{ products: Product[] }>("/api/admin/products"),
+        adminFetch<{ products: Ref[] }>("/api/admin/products"),
+        adminFetch<{ warranties: Ref[] }>("/api/admin/warranties"),
       ]);
       setPackages(pkgRes.packages);
       setProducts(prodRes.products);
+      setWarranties(warrRes.warranties);
     } catch (err) {
       setLoadError(err instanceof AdminApiError ? err.message : "Couldn't load packages.");
     }
@@ -163,10 +199,21 @@ export default function PackagesPage() {
       name: p.name,
       targetCustomerDescription: p.targetCustomerDescription ?? "",
       category: p.category,
+      cameraCount: p.cameraCount != null ? String(p.cameraCount) : "",
+      cameraTypeSummary: p.cameraTypeSummary ?? "",
+      recorderProductId: p.recorderProductId ?? "",
+      storageSummary: p.storageSummary ?? "",
+      networkingSummary: p.networkingSummary ?? "",
+      cablingAssumptionText: p.cablingAssumptionText ?? "",
+      powerSummary: p.powerSummary ?? "",
+      installationSummary: p.installationSummary ?? "",
+      warrantyId: p.warrantyId ?? "",
       status: p.status,
       priceType: p.priceType,
       priceValue: p.priceValue != null ? String(p.priceValue) : "",
       priceValueMax: p.priceValueMax != null ? String(p.priceValueMax) : "",
+      priceVerificationDate: p.priceVerificationDate ? p.priceVerificationDate.slice(0, 10) : "",
+      configuratorPrefillJson: p.configuratorPrefill != null ? JSON.stringify(p.configuratorPrefill, null, 2) : "",
     });
     setPkgFormError(null);
     setPkgFormErrors({});
@@ -177,15 +224,38 @@ export default function PackagesPage() {
     setSaving(true);
     setPkgFormError(null);
     setPkgFormErrors({});
+
+    let configuratorPrefill: unknown = null;
+    if (pkgForm.configuratorPrefillJson.trim()) {
+      try {
+        configuratorPrefill = JSON.parse(pkgForm.configuratorPrefillJson);
+      } catch {
+        setPkgFormError("Configurator prefill isn't valid JSON.");
+        setSaving(false);
+        return;
+      }
+    }
+
     const payload = {
       slug: pkgForm.slug.trim(),
       name: pkgForm.name.trim(),
       targetCustomerDescription: pkgForm.targetCustomerDescription.trim() || null,
       category: pkgForm.category,
+      cameraCount: num(pkgForm.cameraCount),
+      cameraTypeSummary: pkgForm.cameraTypeSummary.trim() || null,
+      recorderProductId: pkgForm.recorderProductId || null,
+      storageSummary: pkgForm.storageSummary.trim() || null,
+      networkingSummary: pkgForm.networkingSummary.trim() || null,
+      cablingAssumptionText: pkgForm.cablingAssumptionText.trim() || null,
+      powerSummary: pkgForm.powerSummary.trim() || null,
+      installationSummary: pkgForm.installationSummary.trim() || null,
+      warrantyId: pkgForm.warrantyId || null,
       status: pkgForm.status,
       priceType: pkgForm.priceType,
       priceValue: num(pkgForm.priceValue),
       priceValueMax: num(pkgForm.priceValueMax),
+      priceVerificationDate: pkgForm.priceVerificationDate ? new Date(pkgForm.priceVerificationDate).toISOString() : null,
+      configuratorPrefill,
     };
     try {
       if (editing) {
@@ -336,7 +406,7 @@ export default function PackagesPage() {
       )}
 
       {showPkgForm && (
-        <Modal title={editing ? `Edit: ${editing.name}` : "New Package"} onClose={() => setShowPkgForm(false)}>
+        <Modal title={editing ? `Edit: ${editing.name}` : "New Package"} onClose={() => setShowPkgForm(false)} wide>
           {pkgFormError && <ErrorBanner>{pkgFormError}</ErrorBanner>}
           <Field label="Name">
             <Input value={pkgForm.name} onChange={(v) => setPkgForm({ ...pkgForm, name: v })} error={pkgFormErrors.name} />
@@ -353,15 +423,89 @@ export default function PackagesPage() {
           <Field label="Status">
             <Select value={pkgForm.status} onChange={(v) => setPkgForm({ ...pkgForm, status: v })} options={STATUSES.map((s) => ({ value: s, label: s }))} />
           </Field>
+
+          <hr style={{ border: "none", borderTop: `1px solid ${colors.border}`, margin: "16px 0" }} />
+          <p style={{ fontSize: 12, fontWeight: 600, color: colors.slate, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>
+            What&rsquo;s included (shown on the public package page)
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Camera count">
+              <Input type="number" value={pkgForm.cameraCount} onChange={(v) => setPkgForm({ ...pkgForm, cameraCount: v })} />
+            </Field>
+            <Field label="Camera type summary">
+              <Input value={pkgForm.cameraTypeSummary} onChange={(v) => setPkgForm({ ...pkgForm, cameraTypeSummary: v })} placeholder="e.g. 4x 2MP outdoor bullet cameras" />
+            </Field>
+          </div>
+          <Field label="Recorder (product)">
+            <Select
+              value={pkgForm.recorderProductId}
+              onChange={(v) => setPkgForm({ ...pkgForm, recorderProductId: v })}
+              placeholder="None"
+              options={products.map((p) => ({ value: p.id, label: p.name }))}
+            />
+          </Field>
+          <Field label="Storage summary">
+            <Input value={pkgForm.storageSummary} onChange={(v) => setPkgForm({ ...pkgForm, storageSummary: v })} placeholder="e.g. 1TB HDD, ~2 weeks retention" />
+          </Field>
+          <Field label="Networking summary">
+            <Input value={pkgForm.networkingSummary} onChange={(v) => setPkgForm({ ...pkgForm, networkingSummary: v })} placeholder="e.g. 1x 8-port PoE switch included" />
+          </Field>
+          <Field label="Cabling assumption">
+            <Input value={pkgForm.cablingAssumptionText} onChange={(v) => setPkgForm({ ...pkgForm, cablingAssumptionText: v })} placeholder="e.g. Up to 30m Cat6 run per camera" />
+          </Field>
+          <Field label="Power summary">
+            <Input value={pkgForm.powerSummary} onChange={(v) => setPkgForm({ ...pkgForm, powerSummary: v })} placeholder="e.g. PoE — no separate power supply needed" />
+          </Field>
+          <Field label="Installation summary">
+            <Input value={pkgForm.installationSummary} onChange={(v) => setPkgForm({ ...pkgForm, installationSummary: v })} placeholder="e.g. 1-day standard installation" />
+          </Field>
+          <Field label="Warranty">
+            <Select
+              value={pkgForm.warrantyId}
+              onChange={(v) => setPkgForm({ ...pkgForm, warrantyId: v })}
+              placeholder="None"
+              options={warranties.map((w) => ({ value: w.id, label: w.name }))}
+            />
+          </Field>
+
+          <hr style={{ border: "none", borderTop: `1px solid ${colors.border}`, margin: "16px 0" }} />
+          <p style={{ fontSize: 12, fontWeight: 600, color: colors.slate, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>Pricing</p>
           <Field label="Price type">
             <Select value={pkgForm.priceType} onChange={(v) => setPkgForm({ ...pkgForm, priceType: v })} options={PRICE_TYPES.map((t) => ({ value: t, label: t.replace(/_/g, " ") }))} />
           </Field>
-          <Field label="Price">
-            <Input type="number" value={pkgForm.priceValue} onChange={(v) => setPkgForm({ ...pkgForm, priceValue: v })} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <Field label="Price">
+              <Input type="number" value={pkgForm.priceValue} onChange={(v) => setPkgForm({ ...pkgForm, priceValue: v })} />
+            </Field>
+            <Field label="Price (max, for range)">
+              <Input type="number" value={pkgForm.priceValueMax} onChange={(v) => setPkgForm({ ...pkgForm, priceValueMax: v })} />
+            </Field>
+          </div>
+          <Field label="Price verified on">
+            <Input type="date" value={pkgForm.priceVerificationDate} onChange={(v) => setPkgForm({ ...pkgForm, priceVerificationDate: v })} />
           </Field>
-          <Field label="Price (max, for range)">
-            <Input type="number" value={pkgForm.priceValueMax} onChange={(v) => setPkgForm({ ...pkgForm, priceValueMax: v })} />
+          <p style={{ fontSize: 11, color: colors.slateLight, marginTop: -8, marginBottom: 14 }}>
+            Leave blank if this price hasn&rsquo;t been confirmed — the public site will show &ldquo;Request Quote&rdquo; instead of the price above until this is set.
+          </p>
+
+          <hr style={{ border: "none", borderTop: `1px solid ${colors.border}`, margin: "16px 0" }} />
+          <p style={{ fontSize: 12, fontWeight: 600, color: colors.slate, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>
+            Configurator prefill (optional)
+          </p>
+          <Field label="Prefill JSON">
+            <Textarea
+              value={pkgForm.configuratorPrefillJson}
+              onChange={(v) => setPkgForm({ ...pkgForm, configuratorPrefillJson: v })}
+              rows={4}
+            />
           </Field>
+          <p style={{ fontSize: 11, color: colors.slateLight, marginTop: -8, marginBottom: 14 }}>
+            Powers the &ldquo;Configure This Package&rdquo; button on the public site — any subset of:{" "}
+            propertyType, cameraCount, coverageTierId, storageTierId, floors, cableDistanceCategory, difficultAccess,
+            needsConduitTrunking, isNewCabling, wantsRemoteViewSetup, optionalServiceIds. Leave blank to link to a
+            blank Configurator instead.
+          </p>
+
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
             <Button variant="secondary" onClick={() => setShowPkgForm(false)}>
               Cancel

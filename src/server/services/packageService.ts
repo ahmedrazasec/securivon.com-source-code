@@ -58,6 +58,10 @@ export class PackageAdminService {
     return this.packages.findById(id);
   }
 
+  async findBySlug(slug: string) {
+    return this.packages.findBySlug(slug);
+  }
+
   async addItem(packageId: string, item: PackageItemInput) {
     return this.packages.addItem(packageId, item);
   }

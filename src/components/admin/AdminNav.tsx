@@ -5,6 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 
 const CORE_SECTIONS = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/leads", label: "Leads" },
+  { href: "/admin/quotes", label: "Quotes" },
+  { href: "/admin/site-surveys", label: "Site Surveys" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/categories", label: "Categories" },
   { href: "/admin/brands", label: "Brands" },
@@ -16,12 +19,7 @@ const CORE_SECTIONS = [
   { href: "/admin/availability", label: "Availability" },
 ];
 
-const FUTURE_SECTIONS = [
-  { href: "/admin/leads", label: "Leads" },
-  { href: "/admin/quotes", label: "Quotes" },
-  { href: "/admin/site-surveys", label: "Site Surveys" },
-  { href: "/admin/pricing-audit-log", label: "Pricing Audit Log" },
-];
+const FUTURE_SECTIONS = [{ href: "/admin/pricing-audit-log", label: "Pricing Audit Log" }];
 
 export function AdminNav() {
   const pathname = usePathname();

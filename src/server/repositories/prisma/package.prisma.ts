@@ -32,6 +32,10 @@ export class PrismaPackageRepository implements PackageRepository {
     const p = await prisma.package.findUnique({ where: { id }, include: { items: { orderBy: { displayOrder: "asc" } } } });
     return p ? toRecord(p) : null;
   }
+  async findBySlug(slug: string) {
+    const p = await prisma.package.findUnique({ where: { slug }, include: { items: { orderBy: { displayOrder: "asc" } } } });
+    return p ? toRecord(p) : null;
+  }
   async list() {
     const rows = await prisma.package.findMany({ include: { items: true }, orderBy: { updatedAt: "desc" } });
     return rows.map(toRecord);
@@ -41,6 +45,7 @@ export class PrismaPackageRepository implements PackageRepository {
       ...input,
       category: input.category as PackageCreateData["category"],
       priceType: input.priceType as PackageCreateData["priceType"],
+      configuratorPrefill: input.configuratorPrefill as PackageCreateData["configuratorPrefill"],
     };
     const created = await prisma.package.create({ data, include: { items: true } });
     return toRecord(created);
@@ -50,6 +55,8 @@ export class PrismaPackageRepository implements PackageRepository {
       ...input,
       category: input.category !== undefined ? (input.category as PackageUpdateData["category"]) : undefined,
       priceType: input.priceType !== undefined ? (input.priceType as PackageUpdateData["priceType"]) : undefined,
+      configuratorPrefill:
+        input.configuratorPrefill !== undefined ? (input.configuratorPrefill as PackageUpdateData["configuratorPrefill"]) : undefined,
     };
     const updated = await prisma.package.update({ where: { id }, data, include: { items: true } });
     return toRecord(updated);
@@ -93,10 +100,21 @@ function toRecord(p: PackageWithItems): PackageRecord {
     name: p.name,
     targetCustomerDescription: p.targetCustomerDescription,
     category: p.category,
+    cameraCount: p.cameraCount,
+    cameraTypeSummary: p.cameraTypeSummary,
+    recorderProductId: p.recorderProductId,
+    storageSummary: p.storageSummary,
+    networkingSummary: p.networkingSummary,
+    cablingAssumptionText: p.cablingAssumptionText,
+    powerSummary: p.powerSummary,
+    installationSummary: p.installationSummary,
+    warrantyId: p.warrantyId,
     status: p.status,
     priceType: p.priceType,
     priceValue: p.priceValue ? Number(p.priceValue) : null,
     priceValueMax: p.priceValueMax ? Number(p.priceValueMax) : null,
+    priceVerificationDate: p.priceVerificationDate?.toISOString() ?? null,
+    configuratorPrefill: p.configuratorPrefill,
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
     items: p.items.map((i: PackageItemRow) => ({

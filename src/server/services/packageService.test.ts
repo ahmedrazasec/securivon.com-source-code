@@ -9,10 +9,21 @@ function basePackageInput(overrides: Partial<PackageCreateInput> = {}): PackageC
     name: "DEMO PACKAGE — NOT FOR PRODUCTION",
     targetCustomerDescription: "Small house or apartment",
     category: "HOME_STARTER",
+    cameraCount: 4,
+    cameraTypeSummary: "4x 2MP outdoor bullet cameras",
+    recorderProductId: null,
+    storageSummary: "1TB HDD, ~2 weeks retention",
+    networkingSummary: null,
+    cablingAssumptionText: null,
+    powerSummary: null,
+    installationSummary: null,
+    warrantyId: null,
     status: "DRAFT",
     priceType: "QUOTE_ONLY",
     priceValue: null,
     priceValueMax: null,
+    priceVerificationDate: null,
+    configuratorPrefill: null,
     ...overrides,
   };
 }
@@ -45,6 +56,43 @@ describe("PackageAdminService", () => {
   it("creates a package with no items initially", async () => {
     const pkg = await service.create("admin-1", basePackageInput());
     expect(pkg.items).toEqual([]);
+  });
+
+  it("findBySlug() passes through to the repository", async () => {
+    await service.create("admin-1", basePackageInput({ slug: "find-me" }));
+    const found = await service.findBySlug("find-me");
+    expect(found?.slug).toBe("find-me");
+  });
+
+  it("findBySlug() returns null for a slug that does not exist", async () => {
+    const found = await service.findBySlug("does-not-exist");
+    expect(found).toBeNull();
+  });
+
+  it("preserves the newly-surfaced dormant schema fields through create()", async () => {
+    const pkg = await service.create(
+      "admin-1",
+      basePackageInput({
+        cameraCount: 6,
+        cameraTypeSummary: "6x 4MP outdoor cameras",
+        storageSummary: "2TB HDD, ~4 weeks retention",
+        networkingSummary: "1x 8-port PoE switch",
+        cablingAssumptionText: "Up to 30m Cat6 run per camera",
+        powerSummary: "PoE, no separate power supply needed",
+        installationSummary: "1-day standard installation",
+        priceVerificationDate: "2026-01-01T00:00:00.000Z",
+        configuratorPrefill: { propertyType: "shop", cameraCount: 6 },
+      })
+    );
+    expect(pkg.cameraCount).toBe(6);
+    expect(pkg.cameraTypeSummary).toBe("6x 4MP outdoor cameras");
+    expect(pkg.storageSummary).toBe("2TB HDD, ~4 weeks retention");
+    expect(pkg.networkingSummary).toBe("1x 8-port PoE switch");
+    expect(pkg.cablingAssumptionText).toBe("Up to 30m Cat6 run per camera");
+    expect(pkg.powerSummary).toBe("PoE, no separate power supply needed");
+    expect(pkg.installationSummary).toBe("1-day standard installation");
+    expect(pkg.priceVerificationDate).toBe("2026-01-01T00:00:00.000Z");
+    expect(pkg.configuratorPrefill).toEqual({ propertyType: "shop", cameraCount: 6 });
   });
 
   it("adds an item referencing a product by ID, without duplicating product data", async () => {

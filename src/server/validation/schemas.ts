@@ -52,7 +52,40 @@ export const configuratorAnswersSchema = z.object({
   hasInternet: z.boolean(),
 });
 
+/**
+ * Validates Package.configuratorPrefill (Prisma schema: "Maps this
+ * package's defaults onto configurator steps, powering the 'Get This
+ * Package' prefilled-configurator shortcut"). All fields are optional —
+ * Admin can prefill as much or as little of the Configurator wizard as
+ * makes sense for a given package; anything left out just uses the
+ * Configurator's own defaults.
+ *
+ * `.strict()` rejects unknown keys deliberately: this is admin-authored
+ * JSON that flows straight into a public-facing URL
+ * (src/app/(public)/packages/[slug]/page.tsx builds a query string from
+ * it) with no further review step, so this schema is the only thing
+ * standing between "Admin typo/experiment" and "unexpected value shows up
+ * in a public URL" — same reasoning as every other public-input boundary
+ * in this file.
+ */
+export const configuratorPrefillSchema = z
+  .object({
+    propertyType: z.enum(["house", "apartment", "shop", "office", "restaurant", "warehouse", "other"]).optional(),
+    cameraCount: z.number().int().min(1).max(200).optional(),
+    coverageTierId: z.enum(["standard", "wide", "high"]).optional(),
+    storageTierId: z.enum(["2w", "4w", "1m"]).optional(),
+    floors: z.number().int().min(1).max(50).optional(),
+    cableDistanceCategory: z.enum(["short", "medium", "long"]).optional(),
+    difficultAccess: z.boolean().optional(),
+    needsConduitTrunking: z.boolean().optional(),
+    isNewCabling: z.boolean().optional(),
+    wantsRemoteViewSetup: z.boolean().optional(),
+    optionalServiceIds: z.array(z.enum(["fire", "intrusion"])).optional(),
+  })
+  .strict();
+
 export type AdminLoginInput = z.infer<typeof adminLoginSchema>;
 export type SiteSurveyRequestInput = z.infer<typeof siteSurveyRequestSchema>;
 export type RequestQuoteInput = z.infer<typeof requestQuoteSchema>;
 export type ConfiguratorAnswersInput = z.infer<typeof configuratorAnswersSchema>;
+export type ConfiguratorPrefillInput = z.infer<typeof configuratorPrefillSchema>;

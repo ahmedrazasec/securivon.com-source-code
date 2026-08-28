@@ -201,6 +201,22 @@ const BADGE_TONES: Record<string, { fg: string; bg: string }> = {
   DRAFT: { fg: colors.slate, bg: colors.headerBg },
   PUBLISHED: { fg: colors.success, bg: colors.successBg },
   ARCHIVED: { fg: colors.danger, bg: colors.dangerBg },
+  // Lead status
+  NEW: { fg: colors.info, bg: colors.infoBg },
+  CONTACTED: { fg: colors.warn, bg: colors.warnBg },
+  SITE_SURVEY_SCHEDULED: { fg: colors.warn, bg: colors.warnBg },
+  QUOTED: { fg: colors.info, bg: colors.infoBg },
+  WON: { fg: colors.success, bg: colors.successBg },
+  LOST: { fg: colors.danger, bg: colors.dangerBg },
+  // SiteSurveyRequest status
+  REQUESTED: { fg: colors.info, bg: colors.infoBg },
+  SCHEDULED: { fg: colors.warn, bg: colors.warnBg },
+  COMPLETED: { fg: colors.success, bg: colors.successBg },
+  CANCELLED: { fg: colors.danger, bg: colors.dangerBg },
+  // Quote status
+  SENT: { fg: colors.info, bg: colors.infoBg },
+  ACCEPTED: { fg: colors.success, bg: colors.successBg },
+  EXPIRED: { fg: colors.danger, bg: colors.dangerBg },
 };
 
 export function Badge({ value }: { value: string }) {

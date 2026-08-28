@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/server/auth/adminApiHelper";
 import { container } from "@/server/container";
+import { configuratorPrefillSchema } from "@/server/validation/schemas";
 
 /**
  * Packages (+ PackageItem) Admin route handlers.
@@ -21,10 +22,28 @@ const packageSchema = z.object({
   name: z.string().min(1),
   targetCustomerDescription: z.string().nullable().optional(),
   category: z.enum(["HOME_STARTER", "HOME_COMPLETE", "SHOP_RETAIL", "OFFICE", "RESTAURANT_CAFE", "CUSTOM"]),
+  cameraCount: z.number().int().min(0).nullable().optional(),
+  cameraTypeSummary: z.string().nullable().optional(),
+  recorderProductId: z.string().nullable().optional(),
+  storageSummary: z.string().nullable().optional(),
+  networkingSummary: z.string().nullable().optional(),
+  cablingAssumptionText: z.string().nullable().optional(),
+  powerSummary: z.string().nullable().optional(),
+  installationSummary: z.string().nullable().optional(),
+  warrantyId: z.string().nullable().optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
   priceType: z.enum(["FIXED", "STARTING_FROM", "RANGE", "ESTIMATED", "QUOTE_ONLY"]).default("QUOTE_ONLY"),
   priceValue: z.number().nullable().optional(),
   priceValueMax: z.number().nullable().optional(),
+  // Admin explicitly confirms a package price is trustworthy by setting
+  // this — same "never silently promote to verified" principle as
+  // Product.pricingStatus (src/server/pricing/pricingStatus.ts). A null
+  // value here means the package's stored priceType is NOT shown publicly
+  // — see src/server/serializers/package.ts.
+  priceVerificationDate: z.string().nullable().optional(),
+  // Validated against configuratorPrefillSchema (below) rather than
+  // accepted as arbitrary JSON — see that schema's own comment for why.
+  configuratorPrefill: configuratorPrefillSchema.nullable().optional(),
 });
 
 const packageItemSchema = z.object({
@@ -55,8 +74,19 @@ export async function createPackage(request: NextRequest) {
     const pkg = await container.packages.create(session.sub, {
       ...parsed.data,
       targetCustomerDescription: parsed.data.targetCustomerDescription ?? null,
+      cameraCount: parsed.data.cameraCount ?? null,
+      cameraTypeSummary: parsed.data.cameraTypeSummary ?? null,
+      recorderProductId: parsed.data.recorderProductId ?? null,
+      storageSummary: parsed.data.storageSummary ?? null,
+      networkingSummary: parsed.data.networkingSummary ?? null,
+      cablingAssumptionText: parsed.data.cablingAssumptionText ?? null,
+      powerSummary: parsed.data.powerSummary ?? null,
+      installationSummary: parsed.data.installationSummary ?? null,
+      warrantyId: parsed.data.warrantyId ?? null,
       priceValue: parsed.data.priceValue ?? null,
       priceValueMax: parsed.data.priceValueMax ?? null,
+      priceVerificationDate: parsed.data.priceVerificationDate ?? null,
+      configuratorPrefill: parsed.data.configuratorPrefill ?? null,
     });
     return NextResponse.json({ package: pkg }, { status: 201 });
   });
