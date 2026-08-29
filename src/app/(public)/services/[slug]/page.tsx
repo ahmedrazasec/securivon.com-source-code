@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Container } from "@/components/marketing/Primitives";
 import { SERVICES, getServiceBySlug } from "@/lib/marketing/services";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { buildServiceJsonLd } from "@/lib/seo/structuredData";
 
 export function generateStaticParams() {
   return SERVICES.map((s) => ({ slug: s.slug }));
@@ -26,6 +28,7 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <Container className="max-w-3xl py-14 sm:py-20">
+      <JsonLd data={buildServiceJsonLd(service)} />
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Service</p>
       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{service.name}</h1>
       <p className="mt-4 text-base leading-relaxed text-slate">{service.problem}</p>

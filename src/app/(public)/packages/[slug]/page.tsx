@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { Container } from "@/components/marketing/Primitives";
 import { getPublicPackageBySlug } from "@/server/publicRoutes/packages";
 import { formatPackagePrice, isQuoteOnlyPrice, formatProductPrice, firstProductImage } from "@/lib/marketing/productDisplay";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { buildPackageJsonLd } from "@/lib/seo/structuredData";
 import type { PublicPackageItem } from "@/server/publicRoutes/packages";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -40,6 +42,7 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
 
   return (
     <Container className="py-14 sm:py-20">
+      <JsonLd data={buildPackageJsonLd(pkg)} />
       <nav className="text-xs text-slate">
         <Link href="/packages" className="hover:text-ink">
           Packages

@@ -1,15 +1,18 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { SITE_URL } from "@/lib/siteUrl";
 
 /**
  * Root layout.
  *
- * Deliberately minimal — fonts and metadata only. Site chrome (header/
- * footer) lives in src/app/(public)/layout.tsx via a route group, so
- * /admin/** (which has its own AdminNav) isn't wrapped in marketing
- * navigation. Route groups don't affect the URL: (public)/page.tsx still
- * serves at "/".
+ * Deliberately minimal — fonts, metadataBase, and organization-level
+ * JSON-LD only. Site chrome (header/footer) lives in
+ * src/app/(public)/layout.tsx via a route group, so /admin/** (which has
+ * its own AdminNav) isn't wrapped in marketing navigation. Route groups
+ * don't affect the URL: (public)/page.tsx serves at "/" (there is
+ * deliberately no other src/app/page.tsx — a stray one previously shadowed
+ * it and was removed as part of the SEO foundations batch).
  *
  * Fonts are self-hosted via next/font/local, not next/font/google — the
  * Google Fonts CDN approach failed identically on both the sandbox and the
@@ -37,6 +40,7 @@ const ibmPlexSans = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Securivon — CCTV & Security Solutions in Pakistan",
     template: "%s — Securivon",

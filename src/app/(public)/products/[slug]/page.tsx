@@ -3,6 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/marketing/Primitives";
 import { getPublicProductBySlug } from "@/server/publicRoutes/products";
+import { JsonLd } from "@/components/seo/JsonLd";
+import { buildProductJsonLd } from "@/lib/seo/structuredData";
 import {
   formatProductPrice,
   isQuoteOnlyPrice,
@@ -35,6 +37,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
 
   return (
     <Container className="py-14 sm:py-20">
+      <JsonLd data={buildProductJsonLd(product)} />
       <nav className="text-xs text-slate">
         <Link href="/products" className="hover:text-ink">
           Products
