@@ -46,6 +46,27 @@ import type {
   BrandRecord,
   BrandCreateInput,
   BrandUpdateInput,
+  PricingTierRepository,
+  PricingTierRecord,
+  PricingTierCreateInput,
+  PricingTierUpdateInput,
+  CablingRateRepository,
+  CablingRateRecord,
+  CablingRateUpdateInput,
+  RoundingRuleRepository,
+  RoundingRuleRecord,
+  RoundingRuleUpdateInput,
+  DiscountRepository,
+  DiscountRecord,
+  DiscountCreateInput,
+  DiscountUpdateInput,
+  TaxRuleRepository,
+  TaxRuleRecord,
+  TaxRuleCreateInput,
+  TaxRuleUpdateInput,
+  MinimumChargeRuleRepository,
+  MinimumChargeRuleRecord,
+  MinimumChargeRuleUpdateInput,
 } from "@/server/repositories/types";
 
 export class InMemoryProductRepository implements ProductRepository {
@@ -307,5 +328,123 @@ export class InMemoryPricingAuditLogRepository implements PricingAuditLogReposit
   }
   async listRecent(limit = 50) {
     return [...this.records].sort((a, b) => b.changedAt.localeCompare(a.changedAt)).slice(0, limit);
+  }
+}
+
+export class InMemoryPricingTierRepository implements PricingTierRepository {
+  private records = new Map<string, PricingTierRecord>();
+
+  async list() {
+    return [...this.records.values()];
+  }
+  async create(input: PricingTierCreateInput) {
+    const record: PricingTierRecord = { id: randomUUID(), ...input };
+    this.records.set(record.id, record);
+    return record;
+  }
+  async update(id: string, input: PricingTierUpdateInput) {
+    const existing = this.records.get(id);
+    if (!existing) throw new Error(`PricingTier ${id} not found`);
+    const updated = { ...existing, ...input };
+    this.records.set(id, updated);
+    return updated;
+  }
+  async delete(id: string) {
+    this.records.delete(id);
+  }
+}
+
+export class InMemoryCablingRateRepository implements CablingRateRepository {
+  private record: CablingRateRecord | null = null;
+
+  async getCurrent() {
+    return this.record;
+  }
+  async upsert(input: CablingRateUpdateInput) {
+    this.record = this.record
+      ? { ...this.record, ...input }
+      : { id: randomUUID(), cableType: "", ratePerMeter: 0, includedAllowancePerCamera: 0, verificationDate: null, ...input };
+    return this.record;
+  }
+}
+
+export class InMemoryRoundingRuleRepository implements RoundingRuleRepository {
+  private record: RoundingRuleRecord | null = null;
+
+  async getCurrent() {
+    return this.record;
+  }
+  async upsert(input: RoundingRuleUpdateInput) {
+    this.record = this.record ? { ...this.record, ...input } : { id: randomUUID(), granularity: 500, direction: "NEAREST", ...input };
+    return this.record;
+  }
+}
+
+export class InMemoryDiscountRepository implements DiscountRepository {
+  private records = new Map<string, DiscountRecord>();
+
+  async list() {
+    return [...this.records.values()];
+  }
+  async create(input: DiscountCreateInput) {
+    const record: DiscountRecord = { id: randomUUID(), ...input };
+    this.records.set(record.id, record);
+    return record;
+  }
+  async update(id: string, input: DiscountUpdateInput) {
+    const existing = this.records.get(id);
+    if (!existing) throw new Error(`Discount ${id} not found`);
+    const updated = { ...existing, ...input };
+    this.records.set(id, updated);
+    return updated;
+  }
+  async delete(id: string) {
+    this.records.delete(id);
+  }
+}
+
+export class InMemoryTaxRuleRepository implements TaxRuleRepository {
+  private records = new Map<string, TaxRuleRecord>();
+
+  async list() {
+    return [...this.records.values()];
+  }
+  async create(input: TaxRuleCreateInput) {
+    const record: TaxRuleRecord = { id: randomUUID(), ...input };
+    this.records.set(record.id, record);
+    return record;
+  }
+  async update(id: string, input: TaxRuleUpdateInput) {
+    const existing = this.records.get(id);
+    if (!existing) throw new Error(`TaxRule ${id} not found`);
+    const updated = { ...existing, ...input };
+    this.records.set(id, updated);
+    return updated;
+  }
+  async delete(id: string) {
+    this.records.delete(id);
+  }
+}
+
+export class InMemoryMinimumChargeRuleRepository implements MinimumChargeRuleRepository {
+  private records = new Map<string, MinimumChargeRuleRecord>();
+
+  async list() {
+    return [...this.records.values()];
+  }
+  async findByServiceType(serviceType: string) {
+    return [...this.records.values()].find((r) => r.serviceType === serviceType) ?? null;
+  }
+  async upsert(serviceType: string, input: MinimumChargeRuleUpdateInput) {
+    const existing = [...this.records.values()].find((r) => r.serviceType === serviceType);
+    if (existing) {
+      const updated = { ...existing, ...input };
+      this.records.set(existing.id, updated);
+      return updated;
+    }
+    // Never a fabricated non-zero default — 0 until Admin enters a real figure, same convention as the Prisma repo.
+    const record: MinimumChargeRuleRecord = { id: randomUUID(), serviceType, minimumChargeAmount: 0, ...input };
+    this.records.set(record.id, record);
+    return record;
   }
 }

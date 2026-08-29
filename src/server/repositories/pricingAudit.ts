@@ -41,6 +41,19 @@ const PRICING_TIER_PRICING_FIELDS = ["serviceType", "minQuantity", "maxQuantity"
 const CABLING_RATE_PRICING_FIELDS = ["cableType", "ratePerMeter", "includedAllowancePerCamera"] as const;
 const ROUNDING_RULE_PRICING_FIELDS = ["granularity", "direction"] as const;
 
+const DISCOUNT_PRICING_FIELDS = [
+  "type",
+  "value",
+  "appliesToPackageId",
+  "appliesToCategoryId",
+  "sitewide",
+  "validFrom",
+  "validUntil",
+  "active",
+] as const;
+const TAX_RULE_PRICING_FIELDS = ["ratePercentage", "appliesTo", "inclusiveOrExclusive", "active"] as const;
+const MINIMUM_CHARGE_RULE_PRICING_FIELDS = ["serviceType", "minimumChargeAmount"] as const;
+
 const PRICING_RELEVANT_FIELDS: Record<string, readonly string[]> = {
   Product: PRODUCT_PRICING_FIELDS,
   InstallationRate: INSTALLATION_RATE_PRICING_FIELDS,
@@ -48,6 +61,9 @@ const PRICING_RELEVANT_FIELDS: Record<string, readonly string[]> = {
   PricingTier: PRICING_TIER_PRICING_FIELDS,
   CablingRate: CABLING_RATE_PRICING_FIELDS,
   RoundingRule: ROUNDING_RULE_PRICING_FIELDS,
+  Discount: DISCOUNT_PRICING_FIELDS,
+  TaxRule: TAX_RULE_PRICING_FIELDS,
+  MinimumChargeRule: MINIMUM_CHARGE_RULE_PRICING_FIELDS,
 };
 
 function stringify(value: unknown): string | null {

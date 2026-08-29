@@ -217,6 +217,9 @@ const BADGE_TONES: Record<string, { fg: string; bg: string }> = {
   SENT: { fg: colors.info, bg: colors.infoBg },
   ACCEPTED: { fg: colors.success, bg: colors.successBg },
   EXPIRED: { fg: colors.danger, bg: colors.dangerBg },
+  // Generic active/inactive (Discount, TaxRule)
+  ACTIVE: { fg: colors.success, bg: colors.successBg },
+  INACTIVE: { fg: colors.slate, bg: colors.headerBg },
 };
 
 export function Badge({ value }: { value: string }) {

@@ -305,6 +305,86 @@ export interface RoundingRuleRepository {
   upsert(input: RoundingRuleUpdateInput): Promise<RoundingRuleRecord>;
 }
 
+/**
+ * Discount — genuinely multi-row (Admin can define several discounts),
+ * same CRUD shape as PricingTier. Only the effect on the Configurator's
+ * estimate is currently narrow: src/server/pricing/rateSetLoader.ts only
+ * ever loads the single most-recently-updated row where
+ * `sitewide: true AND active: true` — package/category-scoped discounts
+ * and multiple simultaneous discounts are stored and manageable here, but
+ * not yet combined/applied by the engine. That's an existing, intentional
+ * engine limitation (see rateSetLoader.ts) — this repository layer doesn't
+ * change it, only makes every schema field manageable from Admin.
+ */
+export interface DiscountRecord {
+  id: string;
+  name: string;
+  type: "PERCENTAGE" | "FIXED_AMOUNT";
+  value: number;
+  appliesToPackageId: string | null;
+  appliesToCategoryId: string | null;
+  sitewide: boolean;
+  validFrom: string | null;
+  validUntil: string | null;
+  active: boolean;
+}
+export type DiscountCreateInput = Omit<DiscountRecord, "id">;
+export type DiscountUpdateInput = Partial<DiscountCreateInput>;
+
+export interface DiscountRepository {
+  list(): Promise<DiscountRecord[]>;
+  create(input: DiscountCreateInput): Promise<DiscountRecord>;
+  update(id: string, input: DiscountUpdateInput): Promise<DiscountRecord>;
+  delete(id: string): Promise<void>;
+}
+
+/**
+ * TaxRule — genuinely multi-row (e.g. separate HARDWARE vs INSTALLATION vs
+ * ALL rules could coexist), same CRUD shape as PricingTier/Discount. As
+ * with Discount, the engine currently only loads a single active row
+ * (rateSetLoader.ts: `taxRule.findFirst({ where: { active: true } })`) —
+ * this layer exposes every schema field without changing that behavior.
+ */
+export interface TaxRuleRecord {
+  id: string;
+  name: string;
+  ratePercentage: number;
+  appliesTo: "HARDWARE" | "INSTALLATION" | "ALL";
+  inclusiveOrExclusive: "INCLUSIVE" | "EXCLUSIVE" | "UNSTATED";
+  active: boolean;
+}
+export type TaxRuleCreateInput = Omit<TaxRuleRecord, "id">;
+export type TaxRuleUpdateInput = Partial<TaxRuleCreateInput>;
+
+export interface TaxRuleRepository {
+  list(): Promise<TaxRuleRecord[]>;
+  create(input: TaxRuleCreateInput): Promise<TaxRuleRecord>;
+  update(id: string, input: TaxRuleUpdateInput): Promise<TaxRuleRecord>;
+  delete(id: string): Promise<void>;
+}
+
+/**
+ * MinimumChargeRule — one row per serviceType (String, @unique in the
+ * schema), same singleton-per-key upsert pattern as InstallationRate.
+ * Only "CCTV" is currently read by the rate-set loader
+ * (`minimumChargeRule.findUnique({ where: { serviceType: "CCTV" } })`);
+ * the Admin route restricts serviceType to the same fixed set
+ * InstallationRate uses, for the same reason — so Admin can't create an
+ * unusable row via a typo'd serviceType that nothing ever reads.
+ */
+export interface MinimumChargeRuleRecord {
+  id: string;
+  serviceType: string;
+  minimumChargeAmount: number;
+}
+export type MinimumChargeRuleUpdateInput = Partial<Pick<MinimumChargeRuleRecord, "minimumChargeAmount">>;
+
+export interface MinimumChargeRuleRepository {
+  list(): Promise<MinimumChargeRuleRecord[]>;
+  findByServiceType(serviceType: string): Promise<MinimumChargeRuleRecord | null>;
+  upsert(serviceType: string, input: MinimumChargeRuleUpdateInput): Promise<MinimumChargeRuleRecord>;
+}
+
 export interface PricingAuditLogRecord {
   id: string;
   adminUserId: string;

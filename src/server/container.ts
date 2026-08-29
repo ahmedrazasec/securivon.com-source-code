@@ -9,6 +9,9 @@ import { PrismaInstallationRateRepository } from "@/server/repositories/prisma/i
 import { PrismaPricingTierRepository } from "@/server/repositories/prisma/pricingTier.prisma";
 import { PrismaCablingRateRepository } from "@/server/repositories/prisma/cablingRate.prisma";
 import { PrismaRoundingRuleRepository } from "@/server/repositories/prisma/roundingRule.prisma";
+import { PrismaDiscountRepository } from "@/server/repositories/prisma/discount.prisma";
+import { PrismaTaxRuleRepository } from "@/server/repositories/prisma/taxRule.prisma";
+import { PrismaMinimumChargeRuleRepository } from "@/server/repositories/prisma/minimumChargeRule.prisma";
 import { PrismaPricingAuditLogRepository } from "@/server/repositories/prisma/pricingAuditLog.prisma";
 import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUser.prisma";
 import { PrismaLeadRepository } from "@/server/repositories/prisma/lead.prisma";
@@ -50,7 +53,10 @@ export const container = {
     new PrismaPricingTierRepository(),
     new PrismaCablingRateRepository(),
     new PrismaRoundingRuleRepository(),
-    auditLog
+    auditLog,
+    new PrismaDiscountRepository(),
+    new PrismaTaxRuleRepository(),
+    new PrismaMinimumChargeRuleRepository()
   ),
   auditLog,
   // Read-only Admin visibility into the public submission pipeline
