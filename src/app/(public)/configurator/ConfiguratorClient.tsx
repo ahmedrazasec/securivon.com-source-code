@@ -147,6 +147,10 @@ function ConfiguratorPageInner() {
   // untrusted candidate value along for that check, same trust level as
   // every other query param here.
   const [sourcePackageId] = useState<string | null>(() => searchParams.get("packageId"));
+  // Honeypot field state — see src/server/security/honeypot.ts and the
+  // rendered <input> below (near the top of this component's JSX, so it's
+  // present in the DOM on every step regardless of which step is showing).
+  const [website, setWebsite] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ConfiguratorResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -171,7 +175,7 @@ function ConfiguratorPageInner() {
       const res = await fetch("/api/configurator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sourcePackageId ? { ...answers, sourcePackageId } : answers),
+        body: JSON.stringify({ ...answers, ...(sourcePackageId ? { sourcePackageId } : {}), website }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
@@ -194,6 +198,27 @@ function ConfiguratorPageInner() {
 
   return (
     <Container className="max-w-xl py-14 sm:py-20">
+      {/*
+        Honeypot field — invisible to real visitors, left for bots that
+        fill in every field they find. Off-screen absolute positioning, not
+        display:none/visibility:hidden — see the identical comment in
+        RequestQuoteForm.tsx. Rendered once here (outside the per-step
+        conditional content below) so it's present in the DOM across every
+        step, not just one.
+      */}
+      <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }} aria-hidden="true">
+        <label htmlFor="website">Website</label>
+        <input
+          id="website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+        />
+      </div>
+
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Configurator</p>
       <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
         Tell us what you need

@@ -6,6 +6,7 @@ import { computeEstimate } from "@/server/pricing/engine";
 import { loadCctvPricingRateSet } from "@/server/pricing/rateSetLoader";
 import { checkSiteSurveyRequired } from "@/server/siteSurvey/rules";
 import { getValidatedSourcePackageId } from "@/server/publicRoutes/packages";
+import { HONEYPOT_FIELD_NAME, honeypotFieldSchema, isHoneypotTriggered } from "@/server/security/honeypot";
 import type { PricingEstimateInput } from "@/server/pricing/types";
 import type { SiteSurveyCheckInput } from "@/server/siteSurvey/rules";
 
@@ -66,6 +67,7 @@ const configuratorInputSchema = z.object({
   // before ever being persisted — never taken at face value just because
   // it parsed.
   sourcePackageId: z.string().trim().min(1).optional(),
+  [HONEYPOT_FIELD_NAME]: honeypotFieldSchema,
 });
 
 export async function POST(request: Request) {
@@ -81,6 +83,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid input.", details: parsed.error.flatten() }, { status: 400 });
   }
   const answers = parsed.data;
+
+  // Honeypot check — see src/server/security/honeypot.ts. Deliberately
+  // returns a response indistinguishable in shape/status from a genuine
+  // "needs a site survey" result (the most common real outcome today,
+  // per this file's own header comment on current pricing-data coverage)
+  // without touching the database at all — no ConfiguratorSession is
+  // created.
+  if (isHoneypotTriggered(answers[HONEYPOT_FIELD_NAME])) {
+    return NextResponse.json(
+      { sessionId: crypto.randomUUID(), siteSurveyRequired: true, reasons: [], estimate: null },
+      { status: 200 }
+    );
+  }
 
   try {
     const { rateSet, missingReasons } = await loadCctvPricingRateSet();

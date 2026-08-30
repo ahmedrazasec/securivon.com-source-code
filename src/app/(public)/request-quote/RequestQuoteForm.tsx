@@ -83,6 +83,7 @@ function RequestQuoteForm() {
       propertyType: String(form.get("propertyType") || ""),
       location: String(form.get("location") || ""),
       notes: String(form.get("notes") || ""),
+      website: String(form.get("website") || ""),
       ...(configuratorSessionId ? { configuratorSessionId } : {}),
     };
 
@@ -155,6 +156,20 @@ function RequestQuoteForm() {
       )}
 
       <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+        {/*
+          Honeypot field — invisible to real visitors, left for bots that
+          fill in every field they find. Off-screen absolute positioning,
+          not display:none/visibility:hidden/type=hidden — some spam bots
+          specifically skip fields hidden that way, but still fill in
+          off-screen ones. tabIndex=-1 and aria-hidden keep it out of the
+          way for keyboard/screen-reader users. See
+          src/server/security/honeypot.ts for the server-side check.
+        */}
+        <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }} aria-hidden="true">
+          <label htmlFor="website">Website</label>
+          <input id="website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+        </div>
+
         <Field label="Full name" name="name" required autoComplete="name" />
         <Field label="Phone number" name="phone" type="tel" required autoComplete="tel" />
         <Field label="Email (optional)" name="email" type="email" autoComplete="email" />

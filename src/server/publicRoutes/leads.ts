@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/server/db/client";
+import { HONEYPOT_FIELD_NAME, honeypotFieldSchema, isHoneypotTriggered } from "@/server/security/honeypot";
 
 /**
  * Public "Request a Quote" lead capture.
@@ -34,10 +35,10 @@ import { prisma } from "@/server/db/client";
  * A missing or invalid session ID never fails the submission — the
  * customer's contact request is what matters; the linkage is a bonus.
  *
- * KNOWN LIMITATION: no rate limiting or spam protection yet — matches
- * .env.example's already-documented SPAM_PROTECTION_KEY placeholder
- * ("not wired in yet"). Fine for initial testing; needs addressing before
- * this is linked from real marketing traffic.
+ * KNOWN LIMITATION: no rate limiting yet (spam is mitigated via the
+ * honeypot field below, not throttling — see src/server/security/honeypot.ts).
+ * Fine for initial launch; revisit if abuse patterns emerge that a
+ * honeypot alone doesn't catch.
  */
 
 const PROPERTY_TYPES = ["HOME", "APARTMENT", "SHOP", "RESTAURANT", "OFFICE", "WAREHOUSE", "OTHER"] as const;
@@ -50,6 +51,7 @@ const requestQuoteSchema = z.object({
   location: z.string().trim().min(2).max(200),
   notes: z.string().trim().max(2000).optional().or(z.literal("")),
   configuratorSessionId: z.string().trim().optional(),
+  [HONEYPOT_FIELD_NAME]: honeypotFieldSchema,
 });
 
 type StoredComputedResult = {
@@ -72,6 +74,14 @@ export async function POST(request: Request) {
   }
 
   const { name, phone, email, propertyType, location, notes, configuratorSessionId } = parsed.data;
+
+  // Honeypot check — see src/server/security/honeypot.ts. Deliberately
+  // returns a response indistinguishable from a genuine success (same
+  // status, same shape, a plausible-looking id) without touching the
+  // database at all — no Customer/Lead/SiteSurveyRequest/Quote is created.
+  if (isHoneypotTriggered(parsed.data[HONEYPOT_FIELD_NAME])) {
+    return NextResponse.json({ ok: true, requestId: crypto.randomUUID() }, { status: 201 });
+  }
 
   try {
     type TransactionClient = Parameters<Parameters<typeof prisma.$transaction>[0]>[0];
