@@ -517,6 +517,21 @@ export interface SiteSurveyRequestRepository {
 }
 
 /**
+ * Backs the admin-login brute-force limiter — see LoginAttempt in
+ * schema.prisma and src/server/auth/loginRateLimit.ts for the full design
+ * rationale (DB-backed, not in-memory, so it's correct across multiple
+ * server instances).
+ */
+export interface LoginAttemptRepository {
+  /** Count of rows for `identifier` with createdAt >= `sinceMs` (epoch ms). */
+  countRecentFailures(identifier: string, sinceMs: number): Promise<number>;
+  /** `atMs` defaults to the real current time; only ever overridden by tests, so production callers can omit it. */
+  recordFailure(identifier: string, atMs?: number): Promise<void>;
+  /** Best-effort housekeeping — deletes rows older than `beforeMs`. Never required for correctness (countRecentFailures always filters by window itself); just keeps the table from growing unbounded. */
+  pruneOlderThan(beforeMs: number): Promise<void>;
+}
+
+/**
  * Database-backed replacement for the formerly-hardcoded content in
  * src/lib/marketing/services.ts (that file is left in place, unused, as a
  * reference/rollback copy — not deleted). Field names deliberately mirror

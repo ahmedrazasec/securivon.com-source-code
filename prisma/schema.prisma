@@ -795,6 +795,28 @@ model AdminUser {
   @@index([email])
 }
 
+/**
+ * Backs admin-login brute-force protection (src/server/auth/loginRateLimit.ts).
+ * Deliberately DB-backed rather than an in-memory counter: this app has no
+ * fixed single-process deployment target decided yet, and Postgres/Supabase
+ * is already a hard dependency here — reusing it is the smallest way to get
+ * a limiter that's correct regardless of whether production ends up as one
+ * warm Node process or multiple serverless instances (an in-memory Map
+ * would silently under-protect in the latter case — see the comment in
+ * loginRateLimit.ts for the full reasoning). Only FAILED attempts are
+ * recorded; a successful login writes nothing here.
+ */
+model LoginAttempt {
+  id         String   @id @default(cuid())
+  // "email:<normalized address>" or "ip:<client ip>" — two independent
+  // rate-limit dimensions sharing one table, not two separate tables, since
+  // the query shape (count-recent-rows-for-a-key) is identical for both.
+  identifier String
+  createdAt  DateTime @default(now())
+
+  @@index([identifier, createdAt])
+}
+
 model PricingAuditLog {
   id            String    @id @default(cuid())
   adminUserId   String

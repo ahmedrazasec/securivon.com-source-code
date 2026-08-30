@@ -50,6 +50,7 @@ import type {
   ServiceRecord,
   ServiceCreateInput,
   ServiceUpdateInput,
+  LoginAttemptRepository,
   PricingTierRepository,
   PricingTierRecord,
   PricingTierCreateInput,
@@ -194,6 +195,20 @@ export class InMemoryServiceRepository implements ServiceRepository {
   }
   async archive(id: string) {
     return this.update(id, { status: "ARCHIVED" });
+  }
+}
+
+export class InMemoryLoginAttemptRepository implements LoginAttemptRepository {
+  private rows: { identifier: string; createdAt: number }[] = [];
+
+  async countRecentFailures(identifier: string, sinceMs: number): Promise<number> {
+    return this.rows.filter((r) => r.identifier === identifier && r.createdAt >= sinceMs).length;
+  }
+  async recordFailure(identifier: string, atMs: number = Date.now()): Promise<void> {
+    this.rows.push({ identifier, createdAt: atMs });
+  }
+  async pruneOlderThan(beforeMs: number): Promise<void> {
+    this.rows = this.rows.filter((r) => r.createdAt >= beforeMs);
   }
 }
 

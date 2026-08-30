@@ -82,7 +82,7 @@ See `.env.example` for the full list with descriptions. Summary:
 |---|---|---|
 | `DATABASE_URL` | Prisma / any DB access | PostgreSQL connection string |
 | `AUTH_SECRET` | Admin session signing | 32+ random characters — `openssl rand -base64 32` |
-| `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD_HASH` | First Admin login | Interim bootstrap mechanism — see `src/server/repositories/adminUserRepository.ts`. Hash must be bcrypt, not plain text. |
+| `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD_HASH` | Break-glass fallback only — NOT used by normal production login | Safe to leave unset. Real admin login is a database lookup (`AdminUser` table). See `src/server/repositories/adminUserRepository.ts` for the full explanation of this currently-inert fallback class. Hash must be bcrypt, not plain text, if you do set it. |
 | `WHATSAPP_BUSINESS_NUMBER` | `wa.me` link generation | Config value, not a secret |
 | `ERROR_MONITORING_DSN` | Error tracking | Vendor not yet decided (open decision) |
 | `ANALYTICS_ID` | Analytics | Tool not yet decided (open decision) |

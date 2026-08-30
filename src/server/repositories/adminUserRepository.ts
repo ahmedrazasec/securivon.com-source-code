@@ -5,26 +5,26 @@ import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUse
 /**
  * AdminUser repository.
  *
- * ACTIVE IMPLEMENTATION: `getAdminUserRepository()` below returns
- * `PrismaAdminUserRepository` — real, database-backed Admin login against
- * the AdminUser table via Prisma 7 / the driver adapter / Supabase
- * PostgreSQL. This swap was prepared and applied in a sandbox that cannot
- * itself run `npx prisma generate` (see note below) — confirm it actually
- * compiles and logs in correctly on Windows before relying on it.
+ * ACTIVE / PRODUCTION AUTHENTICATION PATH: `getAdminUserRepository()` below
+ * returns `PrismaAdminUserRepository` — every real admin login is a
+ * database lookup against the `AdminUser` table via Prisma 7 / the driver
+ * adapter / Supabase PostgreSQL, verified working end-to-end on Windows.
+ * `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD_HASH` are NOT part of
+ * this path and are NOT required for normal production login — every real
+ * admin account is a row in `AdminUser`, created/managed like any other
+ * database record.
  *
- * `EnvBootstrapAdminUserRepository` (below) is kept as a documented
- * break-glass fallback — a way to log in with ADMIN_BOOTSTRAP_EMAIL /
- * ADMIN_BOOTSTRAP_PASSWORD_HASH if the AdminUser table is ever empty or
- * unreachable — but is no longer the default. Do not remove those env
- * vars from README/.env.example while this fallback class still exists.
- *
- * SANDBOX BUILD NOTE — this environment cannot verify this change compiles
- * or runs, because `npx prisma generate` fails here (no network path to
- * binaries.prisma.sh — confirmed directly, not assumed). Expect
- * `npm run typecheck` and `npm run build` to fail in THIS sandbox with
- * "Cannot find module '@/generated/prisma/client'" until run somewhere
- * with a generated client. This is expected and does not indicate a bug in
- * the change itself — verify with the actual results on Windows.
+ * `EnvBootstrapAdminUserRepository` (below) exists in the codebase but is
+ * currently INERT — nothing calls it. `getAdminUserRepository()` never
+ * returns it, so as of this batch it has no effect on authentication
+ * behavior at all, whether or not the env vars are set. It's kept as an
+ * available building block for a possible future break-glass login path
+ * (e.g. if the `AdminUser` table is ever empty or the database is
+ * unreachable) — but wiring it in as an actual fallback is a deliberate
+ * decision to make separately, not something to do silently, since a
+ * standing break-glass credential is itself a security trade-off worth
+ * making consciously. Until that decision is made, `ADMIN_BOOTSTRAP_*` env
+ * vars can be left unset in production with no effect on login.
  */
 
 export interface AdminUserRecord {
@@ -46,6 +46,10 @@ export interface AdminUserRepository {
   updatePassword(id: string, passwordHash: string): Promise<void>;
 }
 
+/**
+ * Currently INERT — see the file header comment above for the full
+ * explanation. Nothing in this codebase calls this class today.
+ */
 export class EnvBootstrapAdminUserRepository implements AdminUserRepository {
   async findByEmail(email: string): Promise<AdminUserRecord | null> {
     const bootstrapEmail = process.env.ADMIN_BOOTSTRAP_EMAIL;
