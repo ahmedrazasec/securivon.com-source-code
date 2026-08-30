@@ -515,3 +515,57 @@ export interface SiteSurveyRequestRepository {
   list(filter?: { status?: SiteSurveyRequestListRecord["status"] }): Promise<SiteSurveyRequestListRecord[]>;
   findById(id: string): Promise<SiteSurveyRequestDetailRecord | null>;
 }
+
+/**
+ * Database-backed replacement for the formerly-hardcoded content in
+ * src/lib/marketing/services.ts (that file is left in place, unused, as a
+ * reference/rollback copy — not deleted). Field names deliberately mirror
+ * the shape that file already had (problem/solution/suitableFor/
+ * components/considerations) so the migration is a straight 1:1 mapping,
+ * not a content redesign:
+ *   problemText            <- problem
+ *   solutionText           <- solution
+ *   suitableCustomersText  <- suitableFor (newline-joined; one item per line)
+ *   featuresText           <- components  (newline-joined; one item per line)
+ *   considerationsText     <- considerations
+ *   shortDescription       <- shortDescription
+ * `shortDescription` and `considerationsText` did not exist on the Service
+ * model before this batch — both were added as small additive columns
+ * (see the migration) because no existing field was a faithful semantic
+ * fit; processText/equipmentText/warrantyText/faq are richer fields the
+ * original schema already anticipated that the current marketing content
+ * simply doesn't have source data for yet, so they're left null rather
+ * than guessed at.
+ */
+export interface ServiceRecord {
+  id: string;
+  slug: string;
+  name: string;
+  shortDescription: string | null;
+  quoteOnly: boolean;
+  problemText: string | null;
+  solutionText: string | null;
+  suitableCustomersText: string | null;
+  featuresText: string | null;
+  processText: string | null;
+  equipmentText: string | null;
+  warrantyText: string | null;
+  considerationsText: string | null;
+  faq: unknown;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  createdAt: string;
+  updatedAt: string;
+}
+export type ServiceCreateInput = Omit<ServiceRecord, "id" | "createdAt" | "updatedAt">;
+export type ServiceUpdateInput = Partial<ServiceCreateInput>;
+
+export interface ServiceRepository {
+  findById(id: string): Promise<ServiceRecord | null>;
+  findBySlug(slug: string): Promise<ServiceRecord | null>;
+  list(): Promise<ServiceRecord[]>;
+  create(input: ServiceCreateInput): Promise<ServiceRecord>;
+  update(id: string, input: ServiceUpdateInput): Promise<ServiceRecord>;
+  archive(id: string): Promise<ServiceRecord>;
+}

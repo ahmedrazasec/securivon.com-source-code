@@ -4,11 +4,13 @@ import { buildSitemapEntries, toAbsoluteSitemap, type SitemapDeps } from "@/lib/
 const fakeDeps: SitemapDeps = {
   getProducts: async () => ({ products: [{ slug: "dahua-ipc-hfw2431s" }, { slug: "hikvision-ds-7608" }] }),
   getPackages: async () => [{ slug: "home-starter-4cam" }, { slug: "shop-retail-8cam" }],
+  getServices: async () => [{ slug: "cctv-installation" }, { slug: "fire-alarm" }],
 };
 
 const emptyDeps: SitemapDeps = {
   getProducts: async () => ({ products: [] }),
   getPackages: async () => [],
+  getServices: async () => [],
 };
 
 describe("buildSitemapEntries", () => {
@@ -41,11 +43,17 @@ describe("buildSitemapEntries", () => {
     expect(urls).toContain("/packages/shop-retail-8cam");
   });
 
-  it("includes every static service slug", async () => {
-    const entries = await buildSitemapEntries(emptyDeps);
+  it("includes every currently published service slug returned by the catalogue reader", async () => {
+    const entries = await buildSitemapEntries(fakeDeps);
     const urls = entries.map((e) => e.url);
     expect(urls).toContain("/services/cctv-installation");
     expect(urls).toContain("/services/fire-alarm");
+  });
+
+  it("produces no service entries when the catalogue reader returns nothing (e.g. nothing published yet)", async () => {
+    const entries = await buildSitemapEntries(emptyDeps);
+    const urls = entries.map((e) => e.url);
+    expect(urls.some((u) => u.startsWith("/services/"))).toBe(false);
   });
 
   it("produces no product/package entries when the catalogue readers return nothing (e.g. nothing published yet)", async () => {

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { buildProductJsonLd, buildPackageJsonLd, buildServiceJsonLd } from "@/lib/seo/structuredData";
 import type { PublicProductDetail } from "@/server/publicRoutes/productCatalogue";
 import type { PublicPackageDetail } from "@/server/publicRoutes/packageCatalogue";
-import type { Service } from "@/lib/marketing/services";
+import type { PublicServiceDetail } from "@/server/publicRoutes/serviceCatalogue";
 
 function baseProduct(overrides: Partial<PublicProductDetail> = {}): PublicProductDetail {
   return {
@@ -142,15 +142,19 @@ describe("buildPackageJsonLd", () => {
 });
 
 describe("buildServiceJsonLd", () => {
-  const service: Service = {
+  const service: PublicServiceDetail = {
+    id: "svc-1",
     slug: "cctv-installation",
     name: "CCTV & IP Camera Installation",
     shortDescription: "Camera selection, placement, and installation for full property coverage.",
+    quoteOnly: false,
     problem: "x",
     solution: "y",
     suitableFor: [],
     components: [],
     considerations: "z",
+    seoTitle: null,
+    seoDescription: null,
   };
 
   it("builds a Service entry with no offers/price claims at all", () => {

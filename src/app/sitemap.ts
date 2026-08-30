@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getPublicProductCatalogue } from "@/server/publicRoutes/products";
 import { getPublicPackageCatalogue } from "@/server/publicRoutes/packages";
+import { getPublicServiceCatalogue } from "@/server/publicRoutes/services";
 import { buildSitemapEntries, toAbsoluteSitemap } from "@/lib/seo/sitemapEntries";
 
 /**
@@ -18,6 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const entries = await buildSitemapEntries({
     getProducts: () => getPublicProductCatalogue(),
     getPackages: () => getPublicPackageCatalogue(),
+    getServices: () => getPublicServiceCatalogue(),
   });
   return toAbsoluteSitemap(entries);
 }

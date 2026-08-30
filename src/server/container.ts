@@ -4,6 +4,7 @@ import { PrismaCategoryRepository } from "@/server/repositories/prisma/category.
 import { PrismaBrandRepository } from "@/server/repositories/prisma/brand.prisma";
 import { PrismaSupplierRepository } from "@/server/repositories/prisma/supplier.prisma";
 import { PrismaWarrantyRepository } from "@/server/repositories/prisma/warranty.prisma";
+import { PrismaServiceRepository } from "@/server/repositories/prisma/service.prisma";
 import { PrismaPackageRepository } from "@/server/repositories/prisma/package.prisma";
 import { PrismaInstallationRateRepository } from "@/server/repositories/prisma/installationRate.prisma";
 import { PrismaPricingTierRepository } from "@/server/repositories/prisma/pricingTier.prisma";
@@ -47,6 +48,7 @@ export const container = {
   brands: new PrismaBrandRepository(),
   suppliers: new PrismaSupplierRepository(),
   warranties: new PrismaWarrantyRepository(),
+  services: new PrismaServiceRepository(),
   packages: new PackageAdminService(new PrismaPackageRepository(), auditLog),
   installationRates: new InstallationRateAdminService(new PrismaInstallationRateRepository(), auditLog),
   pricingConfig: new PricingConfigAdminService(

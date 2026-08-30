@@ -5,6 +5,7 @@ import { prisma } from "@/server/db/client";
 import { computeEstimate } from "@/server/pricing/engine";
 import { loadCctvPricingRateSet } from "@/server/pricing/rateSetLoader";
 import { checkSiteSurveyRequired } from "@/server/siteSurvey/rules";
+import { getValidatedSourcePackageId } from "@/server/publicRoutes/packages";
 import type { PricingEstimateInput } from "@/server/pricing/types";
 import type { SiteSurveyCheckInput } from "@/server/siteSurvey/rules";
 
@@ -57,6 +58,14 @@ const configuratorInputSchema = z.object({
   wantsRemoteViewSetup: z.boolean(),
   optionalServiceIds: z.array(z.enum(OPTIONAL_SERVICE_IDS)).default([]),
   customerRequestedSurvey: z.boolean().default(false),
+  // Configurator provenance — set only when the customer arrived via a
+  // Package's "Configure This Package" CTA (see
+  // src/app/(public)/packages/[slug]/page.tsx). Optional and untrusted:
+  // any string shape passes this schema, but it is re-validated against a
+  // real, PUBLISHED Package row below via getValidatedSourcePackageId
+  // before ever being persisted — never taken at face value just because
+  // it parsed.
+  sourcePackageId: z.string().trim().min(1).optional(),
 });
 
 export async function POST(request: Request) {
@@ -125,6 +134,13 @@ export async function POST(request: Request) {
       ? { siteSurveyRequired: true, reasons }
       : { siteSurveyRequired: false, estimate, pricingRulesSnapshot };
 
+    // Server-side re-validation, never trust the browser-supplied id
+    // directly — see resolveValidatedSourcePackageId's own header comment
+    // for exactly what this checks (exists + PUBLISHED). Resolves to null
+    // for a normal, package-less session, or for any invalid/forged id —
+    // either way this never fails the submission.
+    const sourcePackageId = await getValidatedSourcePackageId(answers.sourcePackageId);
+
     type ConfiguratorSessionCreateData = Parameters<typeof prisma.configuratorSession.create>[0]["data"];
 
     const session = await prisma.configuratorSession.create({
@@ -133,6 +149,7 @@ export async function POST(request: Request) {
         answers: answers,
         computedResult: computedResult as ConfiguratorSessionCreateData["computedResult"],
         isConsultative: siteSurveyRequired,
+        sourcePackageId,
       },
     });
 

@@ -34,4 +34,24 @@ export class PrismaAdminUserRepository implements AdminUserRepository {
       active: user.active,
     };
   }
+
+  async findById(id: string): Promise<AdminUserRecord | null> {
+    const user = await prisma.adminUser.findUnique({ where: { id } });
+    if (!user || user.deletedAt) return null;
+
+    return {
+      id: user.id,
+      email: user.email,
+      passwordHash: user.passwordHash,
+      role: user.role,
+      active: user.active,
+    };
+  }
+
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    await prisma.adminUser.update({
+      where: { id },
+      data: { passwordHash },
+    });
+  }
 }

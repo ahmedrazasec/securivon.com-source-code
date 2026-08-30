@@ -1,6 +1,6 @@
 import type { PublicProductDetail } from "@/server/publicRoutes/productCatalogue";
 import type { PublicPackageDetail } from "@/server/publicRoutes/packageCatalogue";
-import type { Service } from "@/lib/marketing/services";
+import type { PublicServiceDetail } from "@/server/publicRoutes/serviceCatalogue";
 import { firstProductImage } from "@/lib/marketing/productDisplay";
 import { SITE_URL } from "@/lib/siteUrl";
 
@@ -126,13 +126,13 @@ export function buildPackageJsonLd(pkg: PublicPackageDetail): Record<string, unk
   };
 }
 
-/** Service pages have no pricing/availability data at all (SERVICES is static marketing copy) — deliberately no `offers` block. */
-export function buildServiceJsonLd(service: Service): Record<string, unknown> {
+/** Service pages have no pricing/availability data at all (Service content has no price field) — deliberately no `offers` block. */
+export function buildServiceJsonLd(service: PublicServiceDetail): Record<string, unknown> {
   return {
     "@context": "https://schema.org",
     "@type": "Service",
     name: service.name,
-    description: service.shortDescription,
+    description: service.shortDescription ?? service.seoDescription ?? undefined,
     url: `${SITE_URL}/services/${service.slug}`,
     provider: { "@type": "Organization", name: "Securivon", url: SITE_URL },
     areaServed: "PK",

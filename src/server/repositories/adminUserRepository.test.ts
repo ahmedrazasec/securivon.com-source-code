@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { authenticateAdmin } from "@/server/repositories/adminUserRepository";
+import { authenticateAdmin, changeOwnPassword } from "@/server/repositories/adminUserRepository";
 import type { AdminUserRepository, AdminUserRecord } from "@/server/repositories/adminUserRepository";
-import { hashPassword } from "@/server/auth/password";
+import { hashPassword, verifyPassword } from "@/server/auth/password";
 
 /**
  * Proves `authenticateAdmin` is correct against ANY AdminUserRepository
@@ -18,6 +18,13 @@ class FakeDbAdminUserRepository implements AdminUserRepository {
   constructor(private readonly users: AdminUserRecord[]) {}
   async findByEmail(email: string): Promise<AdminUserRecord | null> {
     return this.users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase()) ?? null;
+  }
+  async findById(id: string): Promise<AdminUserRecord | null> {
+    return this.users.find((u) => u.id === id) ?? null;
+  }
+  async updatePassword(id: string, passwordHash: string): Promise<void> {
+    const user = this.users.find((u) => u.id === id);
+    if (user) user.passwordHash = passwordHash;
   }
 }
 
@@ -80,5 +87,64 @@ describe("authenticateAdmin against a database-shaped repository", () => {
     const result = await authenticateAdmin("two@securivon.com", "PasswordTwo2!", repo);
     expect(result?.id).toBe("u2");
     expect(result?.role).toBe("CONTENT_EDITOR");
+  });
+});
+
+describe("changeOwnPassword against a database-shaped repository", () => {
+  it("changes the password when the current password is correct", async () => {
+    const passwordHash = await hashPassword("OldPassword1!");
+    const repo = new FakeDbAdminUserRepository([
+      { id: "u1", email: "admin@securivon.com", passwordHash, role: "ADMIN", active: true },
+    ]);
+
+    const result = await changeOwnPassword("u1", "OldPassword1!", "NewPassword2!", repo);
+    expect(result.ok).toBe(true);
+
+    const updated = await repo.findById("u1");
+    expect(await verifyPassword("NewPassword2!", updated!.passwordHash)).toBe(true);
+    expect(await verifyPassword("OldPassword1!", updated!.passwordHash)).toBe(false);
+  });
+
+  it("rejects when the current password is wrong, and does not change the stored hash", async () => {
+    const passwordHash = await hashPassword("OldPassword1!");
+    const repo = new FakeDbAdminUserRepository([
+      { id: "u1", email: "admin@securivon.com", passwordHash, role: "ADMIN", active: true },
+    ]);
+
+    const result = await changeOwnPassword("u1", "WrongPassword!", "NewPassword2!", repo);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("INCORRECT_CURRENT_PASSWORD");
+
+    const unchanged = await repo.findById("u1");
+    expect(await verifyPassword("OldPassword1!", unchanged!.passwordHash)).toBe(true);
+  });
+
+  it("rejects when the user id does not exist", async () => {
+    const repo = new FakeDbAdminUserRepository([]);
+    const result = await changeOwnPassword("missing", "anything", "NewPassword2!", repo);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("NOT_FOUND");
+  });
+
+  it("rejects when the account is deactivated", async () => {
+    const passwordHash = await hashPassword("OldPassword1!");
+    const repo = new FakeDbAdminUserRepository([
+      { id: "u1", email: "admin@securivon.com", passwordHash, role: "ADMIN", active: false },
+    ]);
+
+    const result = await changeOwnPassword("u1", "OldPassword1!", "NewPassword2!", repo);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("NOT_FOUND");
+  });
+
+  it("rejects the env-bootstrap account id, which has no row to update", async () => {
+    const passwordHash = await hashPassword("OldPassword1!");
+    const repo = new FakeDbAdminUserRepository([
+      { id: "bootstrap-admin", email: "admin@securivon.com", passwordHash, role: "ADMIN", active: true },
+    ]);
+
+    const result = await changeOwnPassword("bootstrap-admin", "OldPassword1!", "NewPassword2!", repo);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toBe("BOOTSTRAP_ACCOUNT");
   });
 });

@@ -3,6 +3,7 @@ import { container } from "@/server/container";
 import {
   buildPublicPackageCatalogue,
   buildPublicPackageDetail,
+  resolveValidatedSourcePackageId,
   type PublicPackageListing,
   type PublicPackageDetail,
 } from "@/server/publicRoutes/packageCatalogue";
@@ -39,4 +40,15 @@ export async function getPublicPackageBySlug(slug: string): Promise<PublicPackag
     },
     slug
   );
+}
+
+/**
+ * Container-wired entry point for Configurator provenance validation — see
+ * resolveValidatedSourcePackageId in packageCatalogue.ts for the actual
+ * (unit-tested) eligibility rule. Called from
+ * src/server/publicRoutes/configurator.ts before a browser-supplied
+ * `sourcePackageId` is ever persisted onto a ConfiguratorSession.
+ */
+export async function getValidatedSourcePackageId(candidatePackageId: string | null | undefined): Promise<string | null> {
+  return resolveValidatedSourcePackageId({ packages: container.packages }, candidatePackageId);
 }

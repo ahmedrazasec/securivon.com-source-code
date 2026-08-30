@@ -46,6 +46,10 @@ import type {
   BrandRecord,
   BrandCreateInput,
   BrandUpdateInput,
+  ServiceRepository,
+  ServiceRecord,
+  ServiceCreateInput,
+  ServiceUpdateInput,
   PricingTierRepository,
   PricingTierRecord,
   PricingTierCreateInput,
@@ -160,6 +164,36 @@ export class InMemoryWarrantyRepository implements WarrantyRepository {
   }
   async deactivate(id: string) {
     return this.update(id, { active: false });
+  }
+}
+
+export class InMemoryServiceRepository implements ServiceRepository {
+  private records = new Map<string, ServiceRecord>();
+
+  async findById(id: string) {
+    return this.records.get(id) ?? null;
+  }
+  async findBySlug(slug: string) {
+    return [...this.records.values()].find((s) => s.slug === slug) ?? null;
+  }
+  async list() {
+    return [...this.records.values()];
+  }
+  async create(input: ServiceCreateInput) {
+    const now = new Date().toISOString();
+    const record: ServiceRecord = { ...input, id: randomUUID(), createdAt: now, updatedAt: now };
+    this.records.set(record.id, record);
+    return record;
+  }
+  async update(id: string, input: ServiceUpdateInput) {
+    const existing = this.records.get(id);
+    if (!existing) throw new Error(`Service ${id} not found`);
+    const updated = { ...existing, ...input, updatedAt: new Date().toISOString() };
+    this.records.set(id, updated);
+    return updated;
+  }
+  async archive(id: string) {
+    return this.update(id, { status: "ARCHIVED" });
   }
 }
 

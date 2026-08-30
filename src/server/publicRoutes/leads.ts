@@ -108,6 +108,13 @@ export async function POST(request: Request) {
 
         const quoteData: QuoteCreateData = {
           leadId: lead.id,
+          // Carries forward the session's already-validated provenance
+          // (validated once, server-side, at Configurator submission time —
+          // see ConfiguratorSession.sourcePackageId / resolveValidatedSourcePackageId
+          // in src/server/publicRoutes/packageCatalogue.ts). Reuses Quote's
+          // existing `packageId` field rather than inventing a parallel one;
+          // null for a normal, package-less Configurator session.
+          packageId: session.sourcePackageId,
           type: "CONFIGURATOR_ESTIMATE",
           status: "DRAFT",
           totalEstimatedLow: hasEstimate ? result!.estimate!.low : null,

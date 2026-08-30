@@ -123,6 +123,32 @@ export function buildConfiguratorPrefillQuery(rawPrefill: unknown): string | nul
   return query.length > 0 ? query : null;
 }
 
+/**
+ * Validates a browser-supplied candidate Package id for Configurator
+ * provenance (see ConfiguratorSession.sourcePackageId in schema.prisma).
+ *
+ * The Configurator's "Configure This Package" CTA passes `packageId` as a
+ * URL query parameter — like any query parameter, it can be hand-edited,
+ * shared, or forged, so it is NEVER trusted directly. This is the single
+ * server-side check every candidate id passes through before being
+ * persisted as provenance: the package must actually exist AND be
+ * PUBLISHED (same eligibility rule as buildPublicPackageDetail above —
+ * DRAFT/ARCHIVED packages are not publicly "real" yet/anymore, so they
+ * can't become recorded provenance either). Returns the validated id, or
+ * null for anything that doesn't check out — a missing/invalid/forged
+ * candidate degrades to "no package provenance", never an error, so it
+ * can never break a normal Configurator submission.
+ */
+export async function resolveValidatedSourcePackageId(
+  deps: { packages: Pick<PublicPackageReader, "findById"> },
+  candidatePackageId: string | null | undefined
+): Promise<string | null> {
+  if (!candidatePackageId) return null;
+  const pkg = await deps.packages.findById(candidatePackageId);
+  if (!pkg || pkg.status !== "PUBLISHED") return null;
+  return pkg.id;
+}
+
 function toListingFields(pkg: PackageRecord): Omit<PublicPackageListing, "priceType"> & { priceType: string } {
   return {
     id: pkg.id,
@@ -150,6 +176,10 @@ function toListingFields(pkg: PackageRecord): Omit<PublicPackageListing, "priceT
 export interface PublicPackageReader {
   list(): Promise<PackageRecord[]>;
   findBySlug(slug: string): Promise<PackageRecord | null>;
+  // Only used by resolveValidatedSourcePackageId below (Configurator
+  // provenance) — looked up by id rather than slug since that's what a
+  // ConfiguratorSession/Quote stores.
+  findById(id: string): Promise<PackageRecord | null>;
 }
 
 export interface CatalogueDeps {

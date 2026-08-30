@@ -13,6 +13,7 @@ const CORE_SECTIONS = [
   { href: "/admin/brands", label: "Brands" },
   { href: "/admin/suppliers", label: "Suppliers" },
   { href: "/admin/warranties", label: "Warranties" },
+  { href: "/admin/services", label: "Services" },
   { href: "/admin/packages", label: "Packages" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/installation-rates", label: "Installation Rates" },
@@ -20,6 +21,8 @@ const CORE_SECTIONS = [
 ];
 
 const FUTURE_SECTIONS = [{ href: "/admin/pricing-audit-log", label: "Pricing Audit Log" }];
+
+const ACCOUNT_SECTIONS = [{ href: "/admin/account", label: "My Account" }];
 
 export function AdminNav() {
   const pathname = usePathname();
@@ -74,6 +77,24 @@ export function AdminNav() {
           key={s.href}
           href={s.href as never}
           style={{ padding: "9px 20px", color: "#64748B", textDecoration: "none" }}
+        >
+          {s.label}
+        </Link>
+      ))}
+
+      <div style={{ padding: "16px 20px 8px", fontSize: 11, textTransform: "uppercase", color: "#64748B", letterSpacing: 0.5 }}>
+        Account
+      </div>
+      {ACCOUNT_SECTIONS.map((s) => (
+        <Link
+          key={s.href}
+          href={s.href as never}
+          style={{
+            padding: "9px 20px",
+            color: pathname === s.href ? "#fff" : "#CBD5E1",
+            background: pathname === s.href ? "#1E293B" : "transparent",
+            textDecoration: "none",
+          }}
         >
           {s.label}
         </Link>

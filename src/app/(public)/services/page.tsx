@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Container, SectionHeading } from "@/components/marketing/Primitives";
-import { SERVICES } from "@/lib/marketing/services";
+import { getPublicServiceCatalogue } from "@/server/publicRoutes/services";
 
 export const metadata: Metadata = {
   title: "Services",
@@ -9,12 +9,18 @@ export const metadata: Metadata = {
   alternates: { canonical: "/services" },
 };
 
-export default function ServicesPage() {
+// Real, database-backed content now (was static SERVICES import) — no
+// generateStaticParams/force-static here, matching /products and
+// /packages, so an admin edit is live immediately rather than only after a
+// rebuild.
+export default async function ServicesPage() {
+  const services = await getPublicServiceCatalogue();
+
   return (
     <Container className="py-14 sm:py-20">
       <SectionHeading eyebrow="What we do" title="Services" description="Every system starts with your property, not a fixed package." />
       <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {SERVICES.map((service) => (
+        {services.map((service) => (
           <Link
             key={service.slug}
             href={`/services/${service.slug}`}

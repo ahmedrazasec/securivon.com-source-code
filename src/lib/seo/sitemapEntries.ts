@@ -1,4 +1,3 @@
-import { SERVICES } from "@/lib/marketing/services";
 import { SITE_URL } from "@/lib/siteUrl";
 
 /**
@@ -47,17 +46,18 @@ const STATIC_ENTRIES: SitemapEntry[] = [
 export interface SitemapDeps {
   getProducts: () => Promise<{ products: { slug: string }[] }>;
   getPackages: () => Promise<{ slug: string }[]>;
+  getServices: () => Promise<{ slug: string }[]>;
 }
 
 /**
  * Builds the full sitemap entry list: static pages + every currently
- * PUBLISHED product/package slug (via the same public catalogue readers
- * the actual /products and /packages pages use — a product/package that
- * isn't publicly visible on the site is never listed here either) + every
- * static service slug.
+ * PUBLISHED product/package/service slug (via the same public catalogue
+ * readers the actual /products, /packages, and /services pages use — an
+ * entity that isn't publicly visible on the site is never listed here
+ * either).
  */
 export async function buildSitemapEntries(deps: SitemapDeps): Promise<SitemapEntry[]> {
-  const [{ products }, packages] = await Promise.all([deps.getProducts(), deps.getPackages()]);
+  const [{ products }, packages, services] = await Promise.all([deps.getProducts(), deps.getPackages(), deps.getServices()]);
 
   const productEntries: SitemapEntry[] = products.map((p) => ({
     url: `/products/${p.slug}`,
@@ -71,7 +71,7 @@ export async function buildSitemapEntries(deps: SitemapDeps): Promise<SitemapEnt
     priority: 0.6,
   }));
 
-  const serviceEntries: SitemapEntry[] = SERVICES.map((s) => ({
+  const serviceEntries: SitemapEntry[] = services.map((s) => ({
     url: `/services/${s.slug}`,
     changeFrequency: "monthly",
     priority: 0.7,

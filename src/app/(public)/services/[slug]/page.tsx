@@ -2,28 +2,27 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Container } from "@/components/marketing/Primitives";
-import { SERVICES, getServiceBySlug } from "@/lib/marketing/services";
+import { getPublicServiceBySlug } from "@/server/publicRoutes/services";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildServiceJsonLd } from "@/lib/seo/structuredData";
 
-export function generateStaticParams() {
-  return SERVICES.map((s) => ({ slug: s.slug }));
-}
-
+// Real, database-backed content now (was static SERVICES + generateStaticParams)
+// — dynamic per-request, matching /products/[slug] and /packages/[slug], so an
+// admin edit or newly-published service is live immediately.
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const service = await getPublicServiceBySlug(slug);
   if (!service) return {};
   return {
-    title: service.name,
-    description: service.shortDescription,
+    title: service.seoTitle ?? service.name,
+    description: service.seoDescription ?? service.shortDescription ?? undefined,
     alternates: { canonical: `/services/${service.slug}` },
   };
 }
 
 export default async function ServiceDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const service = getServiceBySlug(slug);
+  const service = await getPublicServiceBySlug(slug);
   if (!service) notFound();
 
   return (
@@ -31,38 +30,46 @@ export default async function ServiceDetailPage({ params }: { params: Promise<{ 
       <JsonLd data={buildServiceJsonLd(service)} />
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Service</p>
       <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{service.name}</h1>
-      <p className="mt-4 text-base leading-relaxed text-slate">{service.problem}</p>
+      {service.problem && <p className="mt-4 text-base leading-relaxed text-slate">{service.problem}</p>}
 
       <div className="mt-10 space-y-10">
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">How we solve it</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate">{service.solution}</p>
-        </section>
+        {service.solution && (
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">How we solve it</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate">{service.solution}</p>
+          </section>
+        )}
 
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">Suitable for</h2>
-          <ul className="mt-2 flex flex-wrap gap-2">
-            {service.suitableFor.map((item) => (
-              <li key={item} className="rounded-full border border-line bg-paper-raised px-3 py-1 text-xs text-slate">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
+        {service.suitableFor.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">Suitable for</h2>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {service.suitableFor.map((item) => (
+                <li key={item} className="rounded-full border border-line bg-paper-raised px-3 py-1 text-xs text-slate">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        <section>
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">What&rsquo;s typically involved</h2>
-          <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-relaxed text-slate">
-            {service.components.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </section>
+        {service.components.length > 0 && (
+          <section>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">What&rsquo;s typically involved</h2>
+            <ul className="mt-2 list-inside list-disc space-y-1 text-sm leading-relaxed text-slate">
+              {service.components.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </section>
+        )}
 
-        <section className="rounded-lg border border-line bg-paper-raised p-5">
-          <h2 className="text-sm font-semibold text-ink">Good to know</h2>
-          <p className="mt-2 text-sm leading-relaxed text-slate">{service.considerations}</p>
-        </section>
+        {service.considerations && (
+          <section className="rounded-lg border border-line bg-paper-raised p-5">
+            <h2 className="text-sm font-semibold text-ink">Good to know</h2>
+            <p className="mt-2 text-sm leading-relaxed text-slate">{service.considerations}</p>
+          </section>
+        )}
       </div>
 
       <div className="mt-12 flex flex-wrap items-center gap-4 border-t border-line pt-8">

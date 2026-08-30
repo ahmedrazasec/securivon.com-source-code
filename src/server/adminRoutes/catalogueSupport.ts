@@ -6,9 +6,9 @@ import { withAdminAuth } from "@/server/auth/adminApiHelper";
 import { container } from "@/server/container";
 
 /**
- * Category / Brand / Supplier / Warranty Admin route handlers.
+ * Category / Brand / Supplier / Warranty / Service Admin route handlers.
  *
- * Mounted at src/app/api/admin/{categories,brands,suppliers,warranties}/
+ * Mounted at src/app/api/admin/{categories,brands,suppliers,warranties,services}/
  * route.ts and .../[id]/route.ts — those files re-export/adapt the
  * functions below rather than duplicating logic. Edit request handling
  * here; edit routing/param-adaptation there. Grouped in one file since
@@ -203,5 +203,72 @@ export async function updateWarranty(request: NextRequest, id: string) {
 export async function deactivateWarranty(request: NextRequest, id: string) {
   return withAdminAuth(request, "EDIT_CONTENT", async () => {
     return NextResponse.json({ warranty: await container.warranties.deactivate(id) });
+  });
+}
+
+// --- Services ---
+//
+// Minimal admin CRUD — no rich-text/FAQ authoring UI in this batch (faq
+// stays null until a future batch needs it). "Publish/unpublish" is just
+// `status`; archive is the same soft-delete convention Package uses
+// (status -> "ARCHIVED"), not a DELETE.
+
+const serviceSchema = z.object({
+  slug: z.string().min(1),
+  name: z.string().min(1),
+  shortDescription: z.string().nullable().optional(),
+  quoteOnly: z.boolean().default(false),
+  problemText: z.string().nullable().optional(),
+  solutionText: z.string().nullable().optional(),
+  // One item per line — matches serviceCatalogue.ts's toLines() split on the public side.
+  suitableCustomersText: z.string().nullable().optional(),
+  featuresText: z.string().nullable().optional(),
+  considerationsText: z.string().nullable().optional(),
+  seoTitle: z.string().nullable().optional(),
+  seoDescription: z.string().nullable().optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
+});
+
+export async function listServices(request: NextRequest) {
+  return withAdminAuth(request, "VIEW_ADMIN", async () => {
+    return NextResponse.json({ services: await container.services.list() });
+  });
+}
+
+export async function createService(request: NextRequest) {
+  return withAdminAuth(request, "EDIT_CONTENT", async () => {
+    const parsed = serviceSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Invalid input." }, { status: 400 });
+    const service = await container.services.create({
+      ...parsed.data,
+      shortDescription: parsed.data.shortDescription ?? null,
+      problemText: parsed.data.problemText ?? null,
+      solutionText: parsed.data.solutionText ?? null,
+      suitableCustomersText: parsed.data.suitableCustomersText ?? null,
+      featuresText: parsed.data.featuresText ?? null,
+      considerationsText: parsed.data.considerationsText ?? null,
+      seoTitle: parsed.data.seoTitle ?? null,
+      seoDescription: parsed.data.seoDescription ?? null,
+      // Not authored through this admin form yet — see comment above.
+      processText: null,
+      equipmentText: null,
+      warrantyText: null,
+      faq: null,
+    });
+    return NextResponse.json({ service }, { status: 201 });
+  });
+}
+
+export async function updateService(request: NextRequest, id: string) {
+  return withAdminAuth(request, "EDIT_CONTENT", async () => {
+    const parsed = serviceSchema.partial().safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Invalid input." }, { status: 400 });
+    return NextResponse.json({ service: await container.services.update(id, parsed.data) });
+  });
+}
+
+export async function archiveService(request: NextRequest, id: string) {
+  return withAdminAuth(request, "EDIT_CONTENT", async () => {
+    return NextResponse.json({ service: await container.services.archive(id) });
   });
 }

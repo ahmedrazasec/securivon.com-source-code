@@ -140,6 +140,13 @@ function ConfiguratorPageInner() {
   const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [answers, setAnswers] = useState<Answers>(() => ({ ...DEFAULT_ANSWERS, ...parsePrefillFromSearchParams(searchParams) }));
+  // Configurator provenance (see ConfiguratorSession.sourcePackageId in
+  // schema.prisma) — captured once from the URL, not part of the editable
+  // Answers shape the customer steps through. Re-validated server-side in
+  // src/server/publicRoutes/configurator.ts; this is just carrying an
+  // untrusted candidate value along for that check, same trust level as
+  // every other query param here.
+  const [sourcePackageId] = useState<string | null>(() => searchParams.get("packageId"));
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<ConfiguratorResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +171,7 @@ function ConfiguratorPageInner() {
       const res = await fetch("/api/configurator", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(answers),
+        body: JSON.stringify(sourcePackageId ? { ...answers, sourcePackageId } : answers),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);

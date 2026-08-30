@@ -38,7 +38,16 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
   const addonItems = pkg.items.filter((i) => i.inclusionStatus === "OPTIONAL_ADDON");
   const excludedItems = pkg.items.filter((i) => i.inclusionStatus === "EXCLUDED");
 
-  const configureHref = pkg.configuratorPrefillQuery ? `/configurator?${pkg.configuratorPrefillQuery}` : "/configurator";
+  // `packageId` is Configurator provenance (see ConfiguratorSession.sourcePackageId
+  // in schema.prisma) — re-validated server-side in
+  // src/server/publicRoutes/configurator.ts before it's ever trusted, so
+  // it's safe to expose here the same way `pkg.id` already is elsewhere on
+  // this page (e.g. buildPackageJsonLd). Appended alongside, not instead
+  // of, the existing prefill query.
+  const provenanceParam = `packageId=${encodeURIComponent(pkg.id)}`;
+  const configureHref = pkg.configuratorPrefillQuery
+    ? `/configurator?${provenanceParam}&${pkg.configuratorPrefillQuery}`
+    : `/configurator?${provenanceParam}`;
 
   return (
     <Container className="py-14 sm:py-20">

@@ -418,10 +418,11 @@ model Package {
 
   warranty  Warranty? @relation(fields: [warrantyId], references: [id])
 
-  items      PackageItem[]
-  quotes     Quote[]
-  quoteItems QuoteItem[]
-  discounts  Discount[]
+  items                PackageItem[]
+  quotes               Quote[]
+  quoteItems           QuoteItem[]
+  discounts            Discount[]
+  configuratorSessions ConfiguratorSession[]
 
   @@index([slug])
   @@index([category])
@@ -681,13 +682,24 @@ model ConfiguratorSession {
   // sessions are not identity-linked before that point (privacy boundary,
   // Phase 4 Risks #7).
   leadId          String?
+  // Set when this session was started from a Package's "Configure This
+  // Package" CTA (Package.configuratorPrefill). Re-validated server-side
+  // against a real, PUBLISHED Package row at session-creation time (see
+  // src/server/publicRoutes/configurator.ts) — never trusted from the
+  // browser as-is. Null for a normal, package-less Configurator session.
+  // The one durable, tamper-checked link back to "which package (if any)
+  // this configuration started from", which later flows onto
+  // Quote.packageId when the session converts (src/server/publicRoutes/leads.ts).
+  sourcePackageId String?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  lead Lead? @relation(fields: [leadId], references: [id])
+  lead          Lead?    @relation(fields: [leadId], references: [id])
+  sourcePackage Package? @relation(fields: [sourcePackageId], references: [id])
 
   @@index([leadId])
   @@index([createdAt])
+  @@index([sourcePackageId])
 }
 
 // ----------------------------------------------------------------------------
@@ -698,6 +710,10 @@ model Service {
   id                      String         @id @default(cuid())
   slug                    String         @unique
   name                    String
+  // Short blurb for the /services listing cards + meta description fallback.
+  // Distinct from seoDescription, which is specifically for <meta
+  // description>/JSON-LD and may need different phrasing than on-page copy.
+  shortDescription        String?
   // Fire alarm / intrusion ship with quoteOnly = true — no configurator
   // entry point, per Phase 1/2's risk framing. Enforced in the API layer,
   // not just content.
@@ -709,6 +725,11 @@ model Service {
   processText                  String?
   equipmentText                  String?
   warrantyText                     String?
+  // "Good to know" — cost/scope caveats shown on the service detail page.
+  // Kept distinct from processText (which is for actual step-by-step
+  // process copy this schema anticipated but the current content doesn't
+  // yet have).
+  considerationsText                  String?
   faq                                 Json?
   seoTitle                            String?
   seoDescription                       String?

@@ -4,6 +4,7 @@ import {
   buildPublicPackageDetail,
   resolveEffectivePackagePriceType,
   buildConfiguratorPrefillQuery,
+  resolveValidatedSourcePackageId,
 } from "@/server/publicRoutes/packageCatalogue";
 import {
   InMemoryProductRepository,
@@ -299,5 +300,42 @@ describe("Public Package Catalogue", () => {
       expect(result?.recorder).toBeNull();
       expect(result?.warranty).toBeNull();
     });
+  });
+});
+
+describe("resolveValidatedSourcePackageId", () => {
+  let packages: InMemoryPackageRepository;
+
+  beforeEach(() => {
+    packages = new InMemoryPackageRepository();
+  });
+
+  it("returns the package id for a real, PUBLISHED package", async () => {
+    const pkg = await packages.create(basePackageInput({ slug: "published-source", status: "PUBLISHED" }));
+    const result = await resolveValidatedSourcePackageId({ packages }, pkg.id);
+    expect(result).toBe(pkg.id);
+  });
+
+  it("returns null for a nonexistent package id", async () => {
+    const result = await resolveValidatedSourcePackageId({ packages }, "does-not-exist");
+    expect(result).toBeNull();
+  });
+
+  it("returns null for a DRAFT (not yet publicly eligible) package", async () => {
+    const pkg = await packages.create(basePackageInput({ slug: "draft-source", status: "DRAFT" }));
+    const result = await resolveValidatedSourcePackageId({ packages }, pkg.id);
+    expect(result).toBeNull();
+  });
+
+  it("returns null for an ARCHIVED (no longer publicly eligible) package", async () => {
+    const pkg = await packages.create(basePackageInput({ slug: "archived-source", status: "ARCHIVED" }));
+    const result = await resolveValidatedSourcePackageId({ packages }, pkg.id);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no candidate id is supplied (normal, package-less Configurator session)", async () => {
+    expect(await resolveValidatedSourcePackageId({ packages }, undefined)).toBeNull();
+    expect(await resolveValidatedSourcePackageId({ packages }, null)).toBeNull();
+    expect(await resolveValidatedSourcePackageId({ packages }, "")).toBeNull();
   });
 });

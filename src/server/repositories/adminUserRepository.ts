@@ -1,5 +1,5 @@
 import "server-only";
-import { verifyPassword } from "@/server/auth/password";
+import { hashPassword, verifyPassword } from "@/server/auth/password";
 import { PrismaAdminUserRepository } from "@/server/repositories/prisma/adminUser.prisma";
 
 /**
@@ -37,6 +37,13 @@ export interface AdminUserRecord {
 
 export interface AdminUserRepository {
   findByEmail(email: string): Promise<AdminUserRecord | null>;
+  /**
+   * Look up by id rather than email — used by the "change my own password"
+   * flow, where we already have `session.sub` (AdminUser.id) and want to
+   * re-verify the current password without a second email round-trip.
+   */
+  findById(id: string): Promise<AdminUserRecord | null>;
+  updatePassword(id: string, passwordHash: string): Promise<void>;
 }
 
 export class EnvBootstrapAdminUserRepository implements AdminUserRepository {
@@ -54,6 +61,19 @@ export class EnvBootstrapAdminUserRepository implements AdminUserRepository {
       role: "ADMIN",
       active: true,
     };
+  }
+
+  async findById(id: string): Promise<AdminUserRecord | null> {
+    const record = await this.findByEmail(process.env.ADMIN_BOOTSTRAP_EMAIL ?? "");
+    return record && record.id === id ? record : null;
+  }
+
+  async updatePassword(): Promise<void> {
+    // The bootstrap account's credential lives in an env var, not a table
+    // row — there is nothing here to write to. Self-service password
+    // change is only meaningful for real AdminUser rows; the route handler
+    // rejects bootstrap sessions before this would ever be called.
+    throw new Error("Cannot change the password of the env-bootstrap admin account.");
   }
 }
 
@@ -73,4 +93,35 @@ export async function authenticateAdmin(
   if (!passwordMatches) return null;
 
   return user;
+}
+
+export type PasswordChangeResult =
+  | { ok: true }
+  | { ok: false; reason: "NOT_FOUND" | "INCORRECT_CURRENT_PASSWORD" | "BOOTSTRAP_ACCOUNT" };
+
+/**
+ * Self-service "change my own password" — re-verifies the current password
+ * against the stored hash before writing the new one, exactly the way
+ * `authenticateAdmin` re-verifies at login. Pulled out of the Next.js route
+ * handler (src/server/adminRoutes/account.ts) so it can be unit-tested
+ * against a fake repository the same way `authenticateAdmin` is above,
+ * independent of Prisma/container wiring.
+ */
+export async function changeOwnPassword(
+  userId: string,
+  currentPlainTextPassword: string,
+  newPlainTextPassword: string,
+  repository: AdminUserRepository = getAdminUserRepository()
+): Promise<PasswordChangeResult> {
+  const user = await repository.findById(userId);
+  if (!user || !user.active) return { ok: false, reason: "NOT_FOUND" };
+  if (user.id === "bootstrap-admin") return { ok: false, reason: "BOOTSTRAP_ACCOUNT" };
+
+  const currentPasswordMatches = await verifyPassword(currentPlainTextPassword, user.passwordHash);
+  if (!currentPasswordMatches) return { ok: false, reason: "INCORRECT_CURRENT_PASSWORD" };
+
+  const newPasswordHash = await hashPassword(newPlainTextPassword);
+  await repository.updatePassword(user.id, newPasswordHash);
+
+  return { ok: true };
 }
