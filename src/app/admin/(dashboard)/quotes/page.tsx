@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useAdminListQuery } from "@/lib/admin/useAdminListQuery";
-import { PageHeader, Select, Badge, Table, EmptyRow, ErrorBanner, Modal, Spinner, colors } from "@/components/admin/ui";
+import { PageHeader, Select, Badge, Table, EmptyRow, ErrorBanner, Modal, Spinner, Button, colors } from "@/components/admin/ui";
 
 interface CustomerSummary {
   name: string;
@@ -43,6 +43,20 @@ interface QuoteDetail extends QuoteListItem {
 
 const STATUSES = ["DRAFT", "SENT", "ACCEPTED", "EXPIRED"];
 
+/**
+ * Mirrors ALLOWED_STATUS_TRANSITIONS in src/server/quotes/immutability.ts —
+ * for dropdown UX only (don't even offer an option the server would
+ * reject). The server-side canTransitionStatus() check is what actually
+ * enforces this; if these two ever drift, the server wins and the user
+ * just sees an error banner instead of a silently-accepted bad option.
+ */
+const ALLOWED_NEXT_STATUSES: Record<string, string[]> = {
+  DRAFT: ["SENT", "EXPIRED"],
+  SENT: ["ACCEPTED", "EXPIRED"],
+  ACCEPTED: [],
+  EXPIRED: [],
+};
+
 function formatPkr(low: number | null, high: number | null) {
   if (low == null && high == null) return "—";
   if (low != null && high != null && low !== high) return `${low.toLocaleString()}–${high.toLocaleString()} PKR`;
@@ -63,17 +77,25 @@ export default function QuotesPage() {
     status: status || undefined,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState("");
 
   function openDetail(id: string) {
     setSelectedId(id);
+    setPendingStatus("");
     q.loadDetail(id);
+  }
+
+  async function handleUpdateStatus() {
+    if (!selectedId || !pendingStatus) return;
+    const ok = await q.updateStatus(selectedId, pendingStatus);
+    if (ok) setPendingStatus("");
   }
 
   return (
     <div>
       <PageHeader
         title="Quotes"
-        description="Every Quote is a frozen snapshot taken at submission time — Admin pricing changes never retroactively alter one. Read-only view."
+        description="Every Quote is a frozen snapshot taken at submission time — Admin pricing changes never retroactively alter one. Status can be moved forward (Draft → Sent → Accepted, or Expired) to track it."
       />
 
       {q.loadError && <ErrorBanner>{q.loadError}</ErrorBanner>}
@@ -145,6 +167,27 @@ export default function QuotesPage() {
                 <DetailRow label="Site survey required" value={q.detail.siteSurveyRequired ? "Yes" : "No"} />
                 {q.detail.validUntil && <DetailRow label="Valid until" value={formatDateTime(q.detail.validUntil)} />}
                 <DetailRow label="Created" value={formatDateTime(q.detail.createdAt)} />
+
+                {q.updateError && <ErrorBanner>{q.updateError}</ErrorBanner>}
+                {ALLOWED_NEXT_STATUSES[q.detail.status]?.length > 0 ? (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                    <div style={{ maxWidth: 200, flex: 1 }}>
+                      <Select
+                        value={pendingStatus}
+                        onChange={setPendingStatus}
+                        placeholder="Change status to…"
+                        options={ALLOWED_NEXT_STATUSES[q.detail.status].map((s) => ({ value: s, label: s }))}
+                      />
+                    </div>
+                    <Button onClick={handleUpdateStatus} disabled={!pendingStatus || q.updating}>
+                      {q.updating ? "Saving…" : "Update"}
+                    </Button>
+                  </div>
+                ) : (
+                  <p style={{ color: colors.slateLight, marginTop: 10, fontSize: 12 }}>
+                    {q.detail.status} is a final status — no further status change is allowed.
+                  </p>
+                )}
               </section>
 
               <section style={{ marginBottom: 18 }}>

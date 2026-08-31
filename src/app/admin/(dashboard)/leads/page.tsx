@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useAdminListQuery } from "@/lib/admin/useAdminListQuery";
-import { PageHeader, Select, Badge, Table, EmptyRow, ErrorBanner, Modal, Spinner, colors } from "@/components/admin/ui";
+import { PageHeader, Select, Badge, Table, EmptyRow, ErrorBanner, Modal, Spinner, Button, colors } from "@/components/admin/ui";
 
 interface CustomerSummary {
   id: string;
@@ -75,17 +75,25 @@ export default function LeadsPage() {
     status: status || undefined,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState("");
 
   function openDetail(id: string) {
     setSelectedId(id);
+    setPendingStatus("");
     q.loadDetail(id);
+  }
+
+  async function handleUpdateStatus() {
+    if (!selectedId || !pendingStatus) return;
+    const ok = await q.updateStatus(selectedId, pendingStatus);
+    if (ok) setPendingStatus("");
   }
 
   return (
     <div>
       <PageHeader
         title="Leads"
-        description="Every customer contact captured from the site — Request Quote form and Configurator hand-offs. Read-only view of the real submission data."
+        description="Every customer contact captured from the site — Request Quote form and Configurator hand-offs. Update a lead's status here to track it through your follow-up process."
       />
 
       {q.loadError && <ErrorBanner>{q.loadError}</ErrorBanner>}
@@ -160,6 +168,21 @@ export default function LeadsPage() {
                 <DetailRow label="Journey source" value={q.detail.journeySource.replace(/_/g, " ")} />
                 <DetailRow label="Assigned to" value={q.detail.assignedTo ?? "Unassigned"} />
                 <DetailRow label="Received" value={formatDateTime(q.detail.createdAt)} />
+
+                {q.updateError && <ErrorBanner>{q.updateError}</ErrorBanner>}
+                <div style={{ display: "flex", gap: 8, marginTop: 10, alignItems: "center" }}>
+                  <div style={{ maxWidth: 200, flex: 1 }}>
+                    <Select
+                      value={pendingStatus}
+                      onChange={setPendingStatus}
+                      placeholder="Change status to…"
+                      options={STATUSES.filter((s) => s !== q.detail!.status).map((s) => ({ value: s, label: s.replace(/_/g, " ") }))}
+                    />
+                  </div>
+                  <Button onClick={handleUpdateStatus} disabled={!pendingStatus || q.updating}>
+                    {q.updating ? "Saving…" : "Update"}
+                  </Button>
+                </div>
               </section>
 
               <section style={{ marginBottom: 18 }}>

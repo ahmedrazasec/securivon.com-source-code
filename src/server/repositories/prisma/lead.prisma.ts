@@ -4,9 +4,12 @@ import type { LeadRepository, LeadListRecord, LeadDetailRecord } from "@/server/
 import { toCustomerSummary, toQuoteListRecord, toSiteSurveyRequestListRecord } from "@/server/repositories/prisma/crmShared";
 
 /**
- * Real, database-backed LeadRepository. Read-only — see types.ts's
- * "Leads / Quotes / Site Surveys" section header for why this deliberately
- * has no create/update methods. Excluded from tsconfig — see adminUser.prisma.ts.
+ * Real, database-backed LeadRepository. Read-only except for status —
+ * updateStatus() is the one narrow write path (Batch 3: minimal Lead/Quote
+ * status control), used only by the admin status-update UI. Everything
+ * else about a Lead (customer link, journeySource, timestamps) is written
+ * only by the public submission flow. Excluded from tsconfig — see
+ * adminUser.prisma.ts.
  */
 export class PrismaLeadRepository implements LeadRepository {
   async list(filter?: { status?: LeadListRecord["status"] }): Promise<LeadListRecord[]> {
@@ -56,5 +59,10 @@ export class PrismaLeadRepository implements LeadRepository {
       quotes: row.quotes.map((q) => toQuoteListRecord(q, row.customer)),
       siteSurveyRequests: row.siteSurveyRequests.map(toSiteSurveyRequestListRecord),
     };
+  }
+
+  async updateStatus(id: string, status: LeadListRecord["status"]): Promise<LeadDetailRecord | null> {
+    await prisma.lead.update({ where: { id }, data: { status } }).catch(() => null);
+    return this.findById(id);
   }
 }

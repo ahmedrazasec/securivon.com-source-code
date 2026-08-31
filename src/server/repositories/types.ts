@@ -449,6 +449,7 @@ export interface LeadDetailRecord extends LeadListRecord {
 export interface LeadRepository {
   list(filter?: { status?: LeadListRecord["status"] }): Promise<LeadListRecord[]>;
   findById(id: string): Promise<LeadDetailRecord | null>;
+  updateStatus(id: string, status: LeadListRecord["status"]): Promise<LeadDetailRecord | null>;
 }
 
 export interface QuoteItemRecord {
@@ -490,6 +491,15 @@ export interface QuoteDetailRecord extends QuoteListRecord {
 export interface QuoteRepository {
   list(filter?: { status?: QuoteListRecord["status"] }): Promise<QuoteListRecord[]>;
   findById(id: string): Promise<QuoteDetailRecord | null>;
+  /**
+   * The ONLY mutation ever allowed on an existing Quote row — status only.
+   * Callers MUST validate the transition via canTransitionStatus()
+   * (src/server/quotes/immutability.ts) before calling this; the
+   * repository itself does not re-check it, matching how every other
+   * validation boundary in this codebase lives above the repository layer.
+   * Never touches pricing, snapshots, items, or any other field.
+   */
+  updateStatus(id: string, status: QuoteListRecord["status"]): Promise<QuoteDetailRecord | null>;
 }
 
 export interface SiteSurveyRequestListRecord {
@@ -514,6 +524,7 @@ export interface SiteSurveyRequestDetailRecord extends SiteSurveyRequestListReco
 export interface SiteSurveyRequestRepository {
   list(filter?: { status?: SiteSurveyRequestListRecord["status"] }): Promise<SiteSurveyRequestListRecord[]>;
   findById(id: string): Promise<SiteSurveyRequestDetailRecord | null>;
+  updateStatus(id: string, status: SiteSurveyRequestListRecord["status"]): Promise<SiteSurveyRequestDetailRecord | null>;
 }
 
 /**

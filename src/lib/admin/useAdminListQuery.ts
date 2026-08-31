@@ -4,20 +4,21 @@ import { useCallback, useEffect, useState } from "react";
 import { adminFetch, AdminApiError } from "@/lib/admin/adminApi";
 
 /**
- * Shared data layer for READ-ONLY Admin list views (Leads, Quotes, Site
- * Surveys). Unlike useSimpleEntityCrud, there's no create/update/deactivate
- * here — these sections only ever display data written by the public
- * submission flow (src/server/publicRoutes/leads.ts). Supports an optional
- * server-side status filter and a separate on-demand detail fetch for a
- * "view details" modal.
+ * Shared data layer for Admin list views (Leads, Quotes, Site Surveys).
+ * Mostly read-only — there's no create/delete here, since these sections
+ * only ever display data written by the public submission flow
+ * (src/server/publicRoutes/leads.ts) — but as of Batch 3, `updateStatus`
+ * is one narrow, explicit write path each page can opt into.
  */
-export function useAdminListQuery<TListItem, TDetail = TListItem>(options: {
-  listUrl: string;
-  listKey: string;
-  itemUrl: (id: string) => string;
-  itemKey: string;
-  status?: string;
-}) {
+export function useAdminListQuery<TListItem extends { id: string; status: string }, TDetail extends { status: string } = TListItem>(
+  options: {
+    listUrl: string;
+    listKey: string;
+    itemUrl: (id: string) => string;
+    itemKey: string;
+    status?: string;
+  }
+) {
   const { listUrl, listKey, itemUrl, itemKey, status } = options;
 
   const [items, setItems] = useState<TListItem[] | null>(null);
@@ -26,6 +27,9 @@ export function useAdminListQuery<TListItem, TDetail = TListItem>(options: {
   const [detail, setDetail] = useState<TDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [updating, setUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -65,5 +69,36 @@ export function useAdminListQuery<TListItem, TDetail = TListItem>(options: {
     setDetailError(null);
   }, []);
 
-  return { items, loadError, reload: load, detail, detailLoading, detailError, loadDetail, clearDetail };
+  /**
+   * PATCHes {status} to itemUrl(id). On success, reflects the new status
+   * both in the open detail view and in the already-loaded list — without
+   * a full reload — by merging the server's returned record (the source
+   * of truth for the new `updatedAt`, etc.) over the matching list item.
+   * Returns true/false so the caller can decide what to do next (e.g.
+   * close a dropdown) without needing to inspect updateError itself.
+   */
+  const updateStatus = useCallback(
+    async (id: string, newStatus: string): Promise<boolean> => {
+      setUpdateError(null);
+      setUpdating(true);
+      try {
+        const res = await adminFetch<Record<string, TDetail>>(itemUrl(id), {
+          method: "PATCH",
+          body: JSON.stringify({ status: newStatus }),
+        });
+        const updated = res[itemKey];
+        setDetail(updated);
+        setItems((prev) => prev?.map((item) => (item.id === id ? { ...item, status: updated.status } : item)) ?? prev);
+        return true;
+      } catch (err) {
+        setUpdateError(err instanceof AdminApiError ? err.message : "Couldn't update status.");
+        return false;
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [itemUrl, itemKey]
+  );
+
+  return { items, loadError, reload: load, detail, detailLoading, detailError, loadDetail, clearDetail, updateStatus, updating, updateError };
 }

@@ -25,4 +25,9 @@ export class PrismaSiteSurveyRequestRepository implements SiteSurveyRequestRepos
     if (!row) return null;
     return toSiteSurveyRequestDetailRecord(row, row.lead.customer);
   }
+
+  async updateStatus(id: string, status: SiteSurveyRequestListRecord["status"]): Promise<SiteSurveyRequestDetailRecord | null> {
+    await prisma.siteSurveyRequest.update({ where: { id }, data: { status } }).catch(() => null);
+    return this.findById(id);
+  }
 }

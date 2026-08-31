@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useAdminListQuery } from "@/lib/admin/useAdminListQuery";
-import { PageHeader, Select, Badge, Table, EmptyRow, ErrorBanner, Modal, Spinner, colors } from "@/components/admin/ui";
+import { PageHeader, Select, Badge, Table, EmptyRow, ErrorBanner, Modal, Spinner, Button, colors } from "@/components/admin/ui";
 
 interface SiteSurveyListItem {
   id: string;
@@ -45,17 +45,25 @@ export default function SiteSurveysPage() {
     status: status || undefined,
   });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState("");
 
   function openDetail(id: string) {
     setSelectedId(id);
+    setPendingStatus("");
     q.loadDetail(id);
+  }
+
+  async function handleUpdateStatus() {
+    if (!selectedId || !pendingStatus) return;
+    const ok = await q.updateStatus(selectedId, pendingStatus);
+    if (ok) setPendingStatus("");
   }
 
   return (
     <div>
       <PageHeader
         title="Site Surveys"
-        description="Requests where an honest on-the-spot estimate wasn't possible — fire/intrusion or otherwise routed by the site-survey rule engine. Read-only view."
+        description="Requests where an honest on-the-spot estimate wasn't possible — fire/intrusion or otherwise routed by the site-survey rule engine. Update status here as you schedule/complete these."
       />
 
       {q.loadError && <ErrorBanner>{q.loadError}</ErrorBanner>}
@@ -118,6 +126,21 @@ export default function SiteSurveysPage() {
                 <DetailRow label="Configurator session" value={q.detail.configurationReference} />
               )}
               <DetailRow label="Requested" value={formatDateTime(q.detail.createdAt)} />
+
+              {q.updateError && <ErrorBanner>{q.updateError}</ErrorBanner>}
+              <div style={{ display: "flex", gap: 8, marginTop: 10, marginBottom: 12, alignItems: "center" }}>
+                <div style={{ maxWidth: 200, flex: 1 }}>
+                  <Select
+                    value={pendingStatus}
+                    onChange={setPendingStatus}
+                    placeholder="Change status to…"
+                    options={STATUSES.filter((s) => s !== q.detail!.status).map((s) => ({ value: s, label: s }))}
+                  />
+                </div>
+                <Button onClick={handleUpdateStatus} disabled={!pendingStatus || q.updating}>
+                  {q.updating ? "Saving…" : "Update"}
+                </Button>
+              </div>
               {q.detail.notes && (
                 <div style={{ marginTop: 12 }}>
                   <span style={{ color: colors.slate, display: "block", marginBottom: 4 }}>Notes</span>

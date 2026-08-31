@@ -51,6 +51,15 @@ import type {
   ServiceCreateInput,
   ServiceUpdateInput,
   LoginAttemptRepository,
+  LeadRepository,
+  LeadListRecord,
+  LeadDetailRecord,
+  QuoteRepository,
+  QuoteListRecord,
+  QuoteDetailRecord,
+  SiteSurveyRequestRepository,
+  SiteSurveyRequestListRecord,
+  SiteSurveyRequestDetailRecord,
   PricingTierRepository,
   PricingTierRecord,
   PricingTierCreateInput,
@@ -209,6 +218,74 @@ export class InMemoryLoginAttemptRepository implements LoginAttemptRepository {
   }
   async pruneOlderThan(beforeMs: number): Promise<void> {
     this.rows = this.rows.filter((r) => r.createdAt >= beforeMs);
+  }
+}
+
+/**
+ * Minimal fakes for the read-mostly CRM repositories (Batch 3: Lead/Quote/
+ * SiteSurveyRequest status control). Seeded directly via the constructor
+ * with full Detail-shaped records — these exist to test the pure
+ * updateXStatusCore functions in the adminRoutes files, not to model every
+ * repository behavior exhaustively (list() filtering, etc. aren't
+ * exercised by those tests).
+ */
+export class InMemoryLeadRepository implements LeadRepository {
+  private records: Map<string, LeadDetailRecord>;
+  constructor(seed: LeadDetailRecord[] = []) {
+    this.records = new Map(seed.map((r) => [r.id, r]));
+  }
+  async list(filter?: { status?: LeadListRecord["status"] }): Promise<LeadListRecord[]> {
+    return [...this.records.values()].filter((r) => !filter?.status || r.status === filter.status);
+  }
+  async findById(id: string): Promise<LeadDetailRecord | null> {
+    return this.records.get(id) ?? null;
+  }
+  async updateStatus(id: string, status: LeadListRecord["status"]): Promise<LeadDetailRecord | null> {
+    const existing = this.records.get(id);
+    if (!existing) return null;
+    const updated = { ...existing, status, updatedAt: new Date().toISOString() };
+    this.records.set(id, updated);
+    return updated;
+  }
+}
+
+export class InMemoryQuoteRepository implements QuoteRepository {
+  private records: Map<string, QuoteDetailRecord>;
+  constructor(seed: QuoteDetailRecord[] = []) {
+    this.records = new Map(seed.map((r) => [r.id, r]));
+  }
+  async list(filter?: { status?: QuoteListRecord["status"] }): Promise<QuoteListRecord[]> {
+    return [...this.records.values()].filter((r) => !filter?.status || r.status === filter.status);
+  }
+  async findById(id: string): Promise<QuoteDetailRecord | null> {
+    return this.records.get(id) ?? null;
+  }
+  async updateStatus(id: string, status: QuoteListRecord["status"]): Promise<QuoteDetailRecord | null> {
+    const existing = this.records.get(id);
+    if (!existing) return null;
+    const updated = { ...existing, status, updatedAt: new Date().toISOString() };
+    this.records.set(id, updated);
+    return updated;
+  }
+}
+
+export class InMemorySiteSurveyRequestRepository implements SiteSurveyRequestRepository {
+  private records: Map<string, SiteSurveyRequestDetailRecord>;
+  constructor(seed: SiteSurveyRequestDetailRecord[] = []) {
+    this.records = new Map(seed.map((r) => [r.id, r]));
+  }
+  async list(filter?: { status?: SiteSurveyRequestListRecord["status"] }): Promise<SiteSurveyRequestListRecord[]> {
+    return [...this.records.values()].filter((r) => !filter?.status || r.status === filter.status);
+  }
+  async findById(id: string): Promise<SiteSurveyRequestDetailRecord | null> {
+    return this.records.get(id) ?? null;
+  }
+  async updateStatus(id: string, status: SiteSurveyRequestListRecord["status"]): Promise<SiteSurveyRequestDetailRecord | null> {
+    const existing = this.records.get(id);
+    if (!existing) return null;
+    const updated = { ...existing, status, updatedAt: new Date().toISOString() };
+    this.records.set(id, updated);
+    return updated;
   }
 }
 

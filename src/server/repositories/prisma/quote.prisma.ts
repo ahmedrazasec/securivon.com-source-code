@@ -4,10 +4,10 @@ import type { QuoteRepository, QuoteListRecord, QuoteDetailRecord } from "@/serv
 import { toQuoteListRecord, toQuoteDetailRecord } from "@/server/repositories/prisma/crmShared";
 
 /**
- * Real, database-backed QuoteRepository. Read-only — the immutability rules
- * in src/server/quotes/immutability.ts govern how Quotes are ever written
- * (at submission time, via the public lead flow); Admin only ever reads
- * them here. Excluded from tsconfig — see adminUser.prisma.ts.
+ * Real, database-backed QuoteRepository. Read-only except for status — see
+ * updateStatus() below and src/server/quotes/immutability.ts for why
+ * status is the only field ever allowed to change on an existing row.
+ * Excluded from tsconfig — see adminUser.prisma.ts.
  */
 export class PrismaQuoteRepository implements QuoteRepository {
   async list(filter?: { status?: QuoteListRecord["status"] }): Promise<QuoteListRecord[]> {
@@ -26,5 +26,10 @@ export class PrismaQuoteRepository implements QuoteRepository {
     });
     if (!row) return null;
     return toQuoteDetailRecord(row, row.lead.customer, row.items);
+  }
+
+  async updateStatus(id: string, status: QuoteListRecord["status"]): Promise<QuoteDetailRecord | null> {
+    await prisma.quote.update({ where: { id }, data: { status } }).catch(() => null);
+    return this.findById(id);
   }
 }
