@@ -30,9 +30,10 @@ function getStorageClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !serviceRoleKey) {
-    throw new Error(
+    throw new ImageUploadError(
       "Image upload is not configured: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must both be set. " +
-        "See .env.example. (The existing 'paste an image URL' workflow still works without these.)"
+        "See .env.example. (The existing 'paste an image URL' workflow still works without these.)",
+      500
     );
   }
 

@@ -46,4 +46,15 @@ describe("uploadCatalogueImage validation", () => {
       await expect(uploadCatalogueImage("product", file)).rejects.toThrow(/not configured/);
     }
   });
+
+  it("throws ImageUploadError (not a plain Error) when Supabase env vars are missing, so the real message reaches the admin instead of a generic 500", async () => {
+    // Regression test: this check previously used `throw new Error(...)`
+    // instead of `throw new ImageUploadError(...)`, which meant the
+    // upload route's `if (error instanceof ImageUploadError)` branch never
+    // matched, the specific "not configured" message was discarded, and
+    // withAdminAuth's generic catch-all returned an unhelpful
+    // "Internal server error." to the admin UI instead.
+    const file = fakeFile("ok.jpg", "image/jpeg", 1024);
+    await expect(uploadCatalogueImage("product", file)).rejects.toBeInstanceOf(ImageUploadError);
+  });
 });
