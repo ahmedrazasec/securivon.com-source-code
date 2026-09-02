@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Container, SectionHeading } from "@/components/marketing/Primitives";
 import { ProductCard } from "@/components/marketing/ProductCard";
+import { Button, Card } from "@/components/marketing/ui";
 import { getPublicProductCatalogue } from "@/server/publicRoutes/products";
 
 export const metadata: Metadata = {
@@ -144,35 +145,25 @@ function PillRow({
 
 function EmptyCatalogueState() {
   return (
-    <div className="mt-10 rounded-lg border border-line bg-paper-raised p-8 text-center">
+    <Card className="mt-10 p-8 text-center">
       <p className="text-sm leading-relaxed text-slate">
         We&rsquo;re still publishing our product catalogue. In the meantime, message us on WhatsApp or request a
         quote and we&rsquo;ll recommend the right equipment for your property.
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-4">
-        <Link
-          href="/request-quote"
-          className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
-        >
-          Request a Quote
-        </Link>
-        <a
-          href="https://wa.me/923110597513"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink"
-        >
+        <Button href="/request-quote">Request a Quote</Button>
+        <Button href="https://wa.me/923110597513" external variant="ghost">
           Chat on WhatsApp →
-        </a>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
 function NoFilterMatchState() {
   return (
-    <div className="mt-10 rounded-lg border border-line bg-paper-raised p-8 text-center">
+    <Card className="mt-10 p-8 text-center">
       <p className="text-sm leading-relaxed text-slate">No products match this filter yet.</p>
-    </div>
+    </Card>
   );
 }

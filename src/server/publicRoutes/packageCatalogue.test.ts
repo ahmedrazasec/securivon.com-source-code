@@ -55,6 +55,7 @@ function basePackageInput(overrides: Partial<PackageCreateInput> = {}): PackageC
     name: "DEMO PACKAGE — NOT FOR PRODUCTION",
     targetCustomerDescription: "Small shop",
     category: "SHOP_RETAIL",
+    images: null,
     cameraCount: 4,
     cameraTypeSummary: "4x 2MP outdoor bullet cameras",
     recorderProductId: null,

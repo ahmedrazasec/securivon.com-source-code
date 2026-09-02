@@ -176,6 +176,7 @@ export interface PackageRecord {
   name: string;
   targetCustomerDescription: string | null;
   category: string;
+  images: unknown;
   cameraCount: number | null;
   cameraTypeSummary: string | null;
   recorderProductId: string | null;
@@ -594,4 +595,29 @@ export interface ServiceRepository {
   create(input: ServiceCreateInput): Promise<ServiceRecord>;
   update(id: string, input: ServiceUpdateInput): Promise<ServiceRecord>;
   archive(id: string): Promise<ServiceRecord>;
+}
+
+export interface GuideRecord {
+  id: string;
+  slug: string;
+  title: string;
+  body: string;
+  images: unknown;
+  seoTitle: string | null;
+  seoDescription: string | null;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export type GuideCreateInput = Omit<GuideRecord, "id" | "createdAt" | "updatedAt">;
+export type GuideUpdateInput = Partial<GuideCreateInput>;
+
+export interface GuideRepository {
+  findById(id: string): Promise<GuideRecord | null>;
+  findBySlug(slug: string): Promise<GuideRecord | null>;
+  list(): Promise<GuideRecord[]>;
+  create(input: GuideCreateInput): Promise<GuideRecord>;
+  update(id: string, input: GuideUpdateInput): Promise<GuideRecord>;
+  archive(id: string): Promise<GuideRecord>;
 }

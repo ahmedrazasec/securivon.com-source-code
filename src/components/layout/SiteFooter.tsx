@@ -10,6 +10,7 @@ const SERVICE_LINKS = [
 
 const COMPANY_LINKS = [
   { href: "/about", label: "About Securivon" },
+  { href: "/products", label: "Products" },
   { href: "/packages", label: "Packages" },
   { href: "/guides", label: "Resources" },
   { href: "/request-quote", label: "Request a Quote" },

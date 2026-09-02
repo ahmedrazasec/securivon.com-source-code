@@ -1,5 +1,6 @@
 import "server-only";
 import { configuratorPrefillSchema } from "@/server/validation/schemas";
+import { productImages } from "@/lib/marketing/productDisplay";
 import {
   buildPublicProductById,
   type ProductDetailDeps,
@@ -65,6 +66,7 @@ export interface PublicPackageListing {
   name: string;
   targetCustomerDescription: string | null;
   category: string;
+  images: Array<{ url: string; alt?: string }>;
   cameraCount: number | null;
   cameraTypeSummary: string | null;
   storageSummary: string | null;
@@ -156,6 +158,7 @@ function toListingFields(pkg: PackageRecord): Omit<PublicPackageListing, "priceT
     name: pkg.name,
     targetCustomerDescription: pkg.targetCustomerDescription,
     category: pkg.category,
+    images: productImages(pkg.images),
     cameraCount: pkg.cameraCount,
     cameraTypeSummary: pkg.cameraTypeSummary,
     storageSummary: pkg.storageSummary,

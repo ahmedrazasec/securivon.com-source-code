@@ -2,8 +2,16 @@
 
 import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { Container } from "@/components/marketing/Primitives";
+import { Button, Card, Badge } from "@/components/marketing/ui";
+import {
+  buildBreakdownRows,
+  hasDiscountLine,
+  hasTaxLine,
+  formatPkr,
+  shouldShowSiteSurveyResult,
+  type PricingBreakdown,
+} from "@/lib/marketing/configuratorResult";
 
 type PropertyType = "house" | "apartment" | "shop" | "office" | "restaurant" | "warehouse" | "other";
 type CoverageTier = "standard" | "wide" | "high";
@@ -117,6 +125,9 @@ type EstimateResult = {
   low: number | null;
   high: number | null;
   insufficientData: boolean;
+  breakdown: PricingBreakdown;
+  hasQuoteOnlyAddon: boolean;
+  quoteOnlyAddonIds: string[];
 } | null;
 
 type ConfiguratorResponse = {
@@ -193,7 +204,7 @@ function ConfiguratorPageInner() {
   }
 
   if (result) {
-    return <QuoteResult result={result} />;
+    return <QuoteResult result={result} answers={answers} />;
   }
 
   return (
@@ -409,8 +420,25 @@ function ConfiguratorPageInner() {
   );
 }
 
-function QuoteResult({ result }: { result: ConfiguratorResponse }) {
-  if (result.siteSurveyRequired || !result.estimate || result.estimate.insufficientData) {
+const OPTIONAL_SERVICE_LABELS: Record<"fire" | "intrusion", string> = {
+  fire: "Fire alarm",
+  intrusion: "Intrusion detection",
+};
+
+const COVERAGE_LABELS: Record<CoverageTier, string> = {
+  standard: "Standard coverage",
+  wide: "Wide coverage",
+  high: "High-resolution coverage",
+};
+
+const STORAGE_LABELS: Record<StorageTier, string> = {
+  "2w": "2 weeks retention",
+  "4w": "4 weeks retention",
+  "1m": "1 month retention",
+};
+
+function QuoteResult({ result, answers }: { result: ConfiguratorResponse; answers: Answers }) {
+  if (shouldShowSiteSurveyResult(result)) {
     return (
       <Container className="max-w-lg py-14 text-center sm:py-20">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Your result</p>
@@ -422,48 +450,106 @@ function QuoteResult({ result }: { result: ConfiguratorResponse }) {
           this makes sure we get coverage right for your property.
         </p>
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-          <Link
-            href={`/request-quote?configuratorSessionId=${result.sessionId}`}
-            className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
-          >
-            Book a Site Survey
-          </Link>
-          <a
-            href="https://wa.me/923110597513"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink"
-          >
+          <Button href={`/request-quote?configuratorSessionId=${result.sessionId}`}>Book a Site Survey</Button>
+          <Button href="https://wa.me/923110597513" external variant="ghost">
             Chat on WhatsApp →
-          </a>
+          </Button>
         </div>
       </Container>
     );
   }
 
-  const { estimate } = result;
+  // Non-null assertion is safe here: shouldShowSiteSurveyResult() already
+  // returned early for a null/insufficient estimate above.
+  const estimate = result.estimate!;
+  const breakdownRows = buildBreakdownRows(estimate.breakdown);
+  const hasDiscount = hasDiscountLine(estimate.breakdown);
+  const hasTax = hasTaxLine(estimate.breakdown);
+
   return (
-    <Container className="max-w-lg py-14 text-center sm:py-20">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Your result</p>
-      <h1 className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
-        {estimate?.low?.toLocaleString()} – {estimate?.high?.toLocaleString()} PKR
-      </h1>
-      <p className="mt-3 text-sm font-medium text-warn">Estimated price — final quotation confirmed after site survey.</p>
-      <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-        <Link
-          href={`/request-quote?configuratorSessionId=${result.sessionId}`}
-          className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
-        >
-          Request Final Quote
-        </Link>
-        <a
-          href="https://wa.me/923110597513"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink"
-        >
+    <Container className="max-w-2xl py-14 sm:py-20">
+      <div className="text-center">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">Configuration complete</p>
+        <h1 className="mt-2 font-display text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
+          Your recommended security setup
+        </h1>
+      </div>
+
+      {/* Estimated investment */}
+      <div className="mt-8 rounded-lg border border-line bg-paper-raised p-6 text-center sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-wide text-slate">Estimated investment</p>
+        <p className="mt-2 font-display text-3xl font-semibold tracking-tight text-ink sm:text-4xl">
+          {estimate.low?.toLocaleString()} – {estimate.high?.toLocaleString()} PKR
+        </p>
+        <Badge tone="warn" className="mt-3">
+          Estimated — final quotation confirmed after site verification
+        </Badge>
+      </div>
+
+      {/* System overview */}
+      <div className="mt-8">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">System overview</h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge tone="accent">
+            {answers.cameraCount} camera{answers.cameraCount === 1 ? "" : "s"}
+          </Badge>
+          <Badge tone="accent">{COVERAGE_LABELS[answers.coverageTierId]}</Badge>
+          <Badge tone="accent">{STORAGE_LABELS[answers.storageTierId]}</Badge>
+          <Badge tone="accent">
+            {answers.floors} floor{answers.floors === 1 ? "" : "s"}
+          </Badge>
+          {answers.wantsRemoteViewSetup && <Badge tone="accent">Remote viewing setup</Badge>}
+          {answers.optionalServiceIds.map((id) => (
+            <Badge key={id} tone="accent">
+              {OPTIONAL_SERVICE_LABELS[id]}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {/* Price breakdown */}
+      {breakdownRows.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink">Price breakdown</h2>
+          <Card className="mt-3 divide-y divide-line p-0">
+            {breakdownRows.map(({ key, label, value }) => (
+              <div key={key} className="flex items-center justify-between px-5 py-3 text-sm">
+                <span className="text-slate">{label}</span>
+                <span className="font-medium text-ink">{formatPkr(value)}</span>
+              </div>
+            ))}
+            {hasDiscount && (
+              <div className="flex items-center justify-between px-5 py-3 text-sm">
+                <span className="text-slate">Discount</span>
+                <span className="font-medium text-accent-strong">−{formatPkr(estimate.breakdown.discountApplied)}</span>
+              </div>
+            )}
+            {hasTax && (
+              <div className="flex items-center justify-between px-5 py-3 text-sm">
+                <span className="text-slate">Tax</span>
+                <span className="font-medium text-ink">{formatPkr(estimate.breakdown.taxApplied)}</span>
+              </div>
+            )}
+          </Card>
+          <p className="mt-2 text-xs text-slate">
+            Approximate breakdown of what&rsquo;s included in your estimate, at currently verified rates. The final
+            quotation may differ once your site is confirmed.
+          </p>
+        </div>
+      )}
+
+      {estimate.hasQuoteOnlyAddon && (
+        <p className="mt-4 text-xs text-slate">
+          One or more selected add-ons need a custom quote and aren&rsquo;t included in the estimate above — we&rsquo;ll
+          price those separately.
+        </p>
+      )}
+
+      <div className="mt-10 flex flex-col items-center gap-3 border-t border-line pt-8 sm:flex-row sm:justify-center">
+        <Button href={`/request-quote?configuratorSessionId=${result.sessionId}`}>Request Final Quote</Button>
+        <Button href="https://wa.me/923110597513" external variant="ghost">
           Chat on WhatsApp →
-        </a>
+        </Button>
       </div>
     </Container>
   );

@@ -1,22 +1,28 @@
-import Link from "next/link";
 import type { PublicProductListing } from "@/server/publicRoutes/products";
 import { formatProductPrice, formatAvailabilityLabel, isAvailabilityConcerning, firstProductImage } from "@/lib/marketing/productDisplay";
+import { Card, Badge } from "@/components/marketing/ui";
 
 export function ProductCard({ product }: { product: PublicProductListing }) {
   const availabilityLabel = formatAvailabilityLabel(product.availability);
   const image = firstProductImage(product.images);
 
   return (
-    <Link
-      href={`/products/${product.slug}`}
-      className="group flex flex-col overflow-hidden rounded-lg border border-line bg-paper-raised transition-colors hover:border-accent"
-    >
-      <div className="flex aspect-[4/3] items-center justify-center border-b border-line bg-paper">
+    <Card href={`/products/${product.slug}`} className="flex flex-col overflow-hidden p-0">
+      <div className="relative flex aspect-[4/3] items-center justify-center border-b border-line bg-paper">
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element -- product image origin is admin-entered and not known ahead of time, so next/image remote-pattern config would need to allow arbitrary hosts anyway
-          <img src={image.url} alt={image.alt ?? product.name} className="h-full w-full object-cover" />
+          <img
+            src={image.url}
+            alt={image.alt ?? product.name}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+          />
         ) : (
           <ProductPlaceholderIcon />
+        )}
+        {availabilityLabel && isAvailabilityConcerning(product.availability) && (
+          <Badge tone="warn" className="absolute left-3 top-3 bg-paper-raised">
+            {availabilityLabel}
+          </Badge>
         )}
       </div>
 
@@ -30,22 +36,20 @@ export function ProductCard({ product }: { product: PublicProductListing }) {
         <h3 className="mt-1 text-sm font-semibold text-ink group-hover:text-accent-strong">{product.name}</h3>
 
         {product.shortDescription && (
-          <p className="mt-2 text-sm leading-relaxed text-slate">{product.shortDescription}</p>
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate">{product.shortDescription}</p>
         )}
 
-        <div className="mt-4 flex flex-1 items-end justify-between gap-3">
+        <div className="mt-4 flex flex-1 items-end justify-between gap-3 border-t border-line pt-4">
           <div>
             <p className="text-sm font-semibold text-ink">{formatProductPrice(product)}</p>
-            {availabilityLabel && (
-              <p className={`mt-0.5 text-xs ${isAvailabilityConcerning(product.availability) ? "text-warn" : "text-slate"}`}>
-                {availabilityLabel}
-              </p>
+            {availabilityLabel && !isAvailabilityConcerning(product.availability) && (
+              <p className="mt-0.5 text-xs text-slate">{availabilityLabel}</p>
             )}
           </div>
           <span className="shrink-0 text-xs font-semibold text-accent-strong">View Details →</span>
         </div>
       </div>
-    </Link>
+    </Card>
   );
 }
 

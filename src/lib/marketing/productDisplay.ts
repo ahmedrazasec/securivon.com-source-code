@@ -93,13 +93,25 @@ export function prettifySpecKey(key: string): string {
  * loosely-typed JSON the same defensive way.
  */
 export function firstProductImage(images: unknown): { url: string; alt?: string } | null {
-  if (!Array.isArray(images) || images.length === 0) return null;
-  const first = images[0];
-  if (first && typeof first === "object" && "url" in first && typeof (first as { url: unknown }).url === "string") {
-    const alt = "alt" in first && typeof (first as { alt: unknown }).alt === "string" ? (first as { alt: string }).alt : undefined;
-    return { url: (first as { url: string }).url, alt };
+  return productImages(images)[0] ?? null;
+}
+
+/**
+ * Full gallery version of firstProductImage — same defensive parsing, all
+ * valid entries instead of just the first. Used by the product detail page
+ * so a product with multiple images gets a thumbnail strip instead of only
+ * ever showing images[0].
+ */
+export function productImages(images: unknown): Array<{ url: string; alt?: string }> {
+  if (!Array.isArray(images)) return [];
+  const result: Array<{ url: string; alt?: string }> = [];
+  for (const entry of images) {
+    if (entry && typeof entry === "object" && "url" in entry && typeof (entry as { url: unknown }).url === "string") {
+      const alt = "alt" in entry && typeof (entry as { alt: unknown }).alt === "string" ? (entry as { alt: string }).alt : undefined;
+      result.push({ url: (entry as { url: string }).url, alt });
+    }
   }
-  return null;
+  return result;
 }
 
 /**

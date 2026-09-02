@@ -4,6 +4,7 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { withAdminAuth } from "@/server/auth/adminApiHelper";
 import { container } from "@/server/container";
+import type { GuideUpdateInput } from "@/server/repositories/types";
 
 /**
  * Category / Brand / Supplier / Warranty / Service Admin route handlers.
@@ -270,5 +271,90 @@ export async function updateService(request: NextRequest, id: string) {
 export async function archiveService(request: NextRequest, id: string) {
   return withAdminAuth(request, "EDIT_CONTENT", async () => {
     return NextResponse.json({ service: await container.services.archive(id) });
+  });
+}
+
+// --- Guides ---
+//
+// Same minimal CRUD convention as Services above. `images` uses the exact
+// same [{url, alt}] shape and validation as Product.images/Package.images
+// (see adminRoutes/products.ts) — populated either via the "paste a URL"
+// flow or POST /api/admin/upload (see server/storage/supabaseStorage.ts).
+// "Publish/unpublish" is `status`; archive is the same soft-delete
+// convention every other catalogue entity uses (status -> "ARCHIVED"), not
+// a DELETE — consistent with "delete only if existing project conventions
+// allow it" (they don't, elsewhere, so Guides don't get one either).
+
+const guideImageSchema = z.object({
+  url: z.string().url(),
+  alt: z.string().optional(),
+});
+
+const guideSchema = z.object({
+  slug: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+  images: z.array(guideImageSchema).nullable().optional(),
+  seoTitle: z.string().nullable().optional(),
+  seoDescription: z.string().nullable().optional(),
+  status: z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]).default("DRAFT"),
+});
+
+export async function listGuides(request: NextRequest) {
+  return withAdminAuth(request, "VIEW_ADMIN", async () => {
+    return NextResponse.json({ guides: await container.guides.list() });
+  });
+}
+
+export async function createGuide(request: NextRequest) {
+  return withAdminAuth(request, "EDIT_CONTENT", async () => {
+    const parsed = guideSchema.safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Invalid input." }, { status: 400 });
+    const guide = await container.guides.create({
+      ...parsed.data,
+      images: parsed.data.images ?? null,
+      seoTitle: parsed.data.seoTitle ?? null,
+      seoDescription: parsed.data.seoDescription ?? null,
+      // publishedAt is set the moment status first becomes PUBLISHED (see
+      // updateGuide below) — never set on create, since a Guide is almost
+      // always created as DRAFT first.
+      publishedAt: parsed.data.status === "PUBLISHED" ? new Date().toISOString() : null,
+    });
+    return NextResponse.json({ guide }, { status: 201 });
+  });
+}
+
+export async function updateGuide(request: NextRequest, id: string) {
+  return withAdminAuth(request, "EDIT_CONTENT", async () => {
+    const parsed = guideSchema.partial().safeParse(await request.json().catch(() => null));
+    if (!parsed.success) return NextResponse.json({ error: "Invalid input." }, { status: 400 });
+
+    // publishedAt isn't in guideSchema (never admin-settable directly, only
+    // auto-stamped), so it's added here as an explicit GuideUpdateInput
+    // rather than mutating parsed.data's narrower inferred type.
+    let publishedAt: string | undefined;
+    if (parsed.data.status === "PUBLISHED") {
+      const existing = await container.guides.findById(id);
+      if (existing && !existing.publishedAt) {
+        publishedAt = new Date().toISOString();
+      }
+    }
+    const data: GuideUpdateInput = {
+      ...parsed.data,
+      ...(publishedAt ? { publishedAt } : {}),
+    };
+
+    try {
+      const guide = await container.guides.update(id, data);
+      return NextResponse.json({ guide });
+    } catch {
+      return NextResponse.json({ error: "Not found." }, { status: 404 });
+    }
+  });
+}
+
+export async function archiveGuide(request: NextRequest, id: string) {
+  return withAdminAuth(request, "EDIT_CONTENT", async () => {
+    return NextResponse.json({ guide: await container.guides.archive(id) });
   });
 }

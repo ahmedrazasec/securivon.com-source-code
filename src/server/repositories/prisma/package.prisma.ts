@@ -18,12 +18,14 @@ type PackageUpdateData = Parameters<typeof prisma.package.update>[0]["data"];
 /**
  * Boundary casts below: PackageCreateInput (src/server/repositories/types.ts)
  * is deliberately Prisma-free — `category` and `priceType` are plain
- * `string` there so business logic/tests never depend on generated Prisma
- * types. Prisma's generated client expects its own PackageCategory/
- * PriceType enum types for these two fields specifically (every other
- * field already matches). The route layer's Zod schema
- * (src/server/adminRoutes/*.ts) already validates these against the exact
- * enum members before this repository ever sees them, so narrowing here is
+ * `string` there, and `images` is `unknown` (same reasoning as
+ * ProductCreateInput.images in product.prisma.ts), so business logic/tests
+ * never depend on generated Prisma types. Prisma's generated client expects
+ * its own PackageCategory/PriceType enum types and a specific JSON input
+ * type for `images` — every other field already matches. The route layer's
+ * Zod schema (src/server/adminRoutes/*.ts) already validates category/
+ * priceType against the exact enum members and images against
+ * `[{url, alt}]` before this repository ever sees them, so narrowing here is
  * safe, not a bypass of validation — just satisfying TypeScript at the one
  * layer that's allowed to know about Prisma's generated types.
  */
@@ -46,6 +48,7 @@ export class PrismaPackageRepository implements PackageRepository {
       category: input.category as PackageCreateData["category"],
       priceType: input.priceType as PackageCreateData["priceType"],
       configuratorPrefill: input.configuratorPrefill as PackageCreateData["configuratorPrefill"],
+      images: input.images as PackageCreateData["images"],
     };
     const created = await prisma.package.create({ data, include: { items: true } });
     return toRecord(created);
@@ -57,6 +60,7 @@ export class PrismaPackageRepository implements PackageRepository {
       priceType: input.priceType !== undefined ? (input.priceType as PackageUpdateData["priceType"]) : undefined,
       configuratorPrefill:
         input.configuratorPrefill !== undefined ? (input.configuratorPrefill as PackageUpdateData["configuratorPrefill"]) : undefined,
+      images: input.images !== undefined ? (input.images as PackageUpdateData["images"]) : undefined,
     };
     const updated = await prisma.package.update({ where: { id }, data, include: { items: true } });
     return toRecord(updated);
@@ -100,6 +104,7 @@ function toRecord(p: PackageWithItems): PackageRecord {
     name: p.name,
     targetCustomerDescription: p.targetCustomerDescription,
     category: p.category,
+    images: p.images,
     cameraCount: p.cameraCount,
     cameraTypeSummary: p.cameraTypeSummary,
     recorderProductId: p.recorderProductId,

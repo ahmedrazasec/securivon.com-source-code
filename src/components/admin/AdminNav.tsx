@@ -14,6 +14,7 @@ const CORE_SECTIONS = [
   { href: "/admin/suppliers", label: "Suppliers" },
   { href: "/admin/warranties", label: "Warranties" },
   { href: "/admin/services", label: "Services" },
+  { href: "/admin/guides", label: "Guides" },
   { href: "/admin/packages", label: "Packages" },
   { href: "/admin/pricing", label: "Pricing" },
   { href: "/admin/installation-rates", label: "Installation Rates" },

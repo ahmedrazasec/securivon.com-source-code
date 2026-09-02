@@ -19,17 +19,18 @@ import type { SiteSurveyCheckInput } from "@/server/siteSurvey/rules";
  * (src/server/pricing/rateSetLoader.ts) — no client-side price
  * calculation, per project rules.
  *
- * CURRENT STATE (be honest about this, don't let the code's realism imply
- * otherwise): no coverage-tier, recorder-tier, cabling-rate, or
- * rounding-rule data has been entered by Admin yet, and there is currently
- * no Admin UI to enter PricingTier/CablingRate/Discount/TaxRule/
- * RoundingRule rows (only InstallationRate has Admin CRUD so far). So
- * every real request today will correctly resolve to
- * siteSurveyRequired=true with "no verified pricing" as one of the
- * reasons — that's the pricing engine's own honesty rule working exactly
- * as designed, not a bug in this endpoint. It will start producing real
- * ESTIMATED results automatically once that Admin data exists — no code
- * changes needed here when it does.
+ * DATA READINESS (not a code gap — see final pre-launch audit): the
+ * Admin UI to manage PricingTier/CablingRate/RoundingRule/Discount/
+ * TaxRule/MinimumChargeRule rows now exists in full at /admin/pricing
+ * (see src/server/adminRoutes/pricingConfig.ts), alongside
+ * /admin/installation-rates for InstallationRate. Whether an estimate or
+ * "site survey required" comes back for a given request depends entirely
+ * on whether those tables have been populated with real rows — this file
+ * has no way to verify that from source alone. If coverage-tier,
+ * recorder-tier, cabling-rate, or rounding-rule rows are missing,
+ * rateSetLoader.ts's own honesty rule correctly falls back to
+ * siteSurveyRequired=true rather than fabricating a number — that's
+ * intended behavior, not a bug.
  */
 
 const PROPERTY_TYPES = ["house", "apartment", "shop", "office", "restaurant", "warehouse", "other"] as const;

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/marketing/Primitives";
+import { Button, Badge } from "@/components/marketing/ui";
+import { ProductGallery } from "@/components/marketing/ProductGallery";
 import { getPublicProductBySlug } from "@/server/publicRoutes/products";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildProductJsonLd } from "@/lib/seo/structuredData";
@@ -11,7 +13,7 @@ import {
   formatAvailabilityLabel,
   isAvailabilityConcerning,
   extractDisplayableSpecs,
-  firstProductImage,
+  productImages,
 } from "@/lib/marketing/productDisplay";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -33,7 +35,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   const specs = extractDisplayableSpecs(product.specifications);
   const availabilityLabel = formatAvailabilityLabel(product.availability);
   const quoteOnly = isQuoteOnlyPrice(product.customerPriceType);
-  const image = firstProductImage(product.images);
+  const images = productImages(product.images);
 
   return (
     <Container className="py-14 sm:py-20">
@@ -53,14 +55,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       </nav>
 
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-2">
-        <div className="flex aspect-[4/3] items-center justify-center overflow-hidden rounded-lg border border-line bg-paper-raised">
-          {image ? (
-            // eslint-disable-next-line @next/next/no-img-element -- admin-entered image source, arbitrary host
-            <img src={image.url} alt={image.alt ?? product.name} className="h-full w-full object-cover" />
-          ) : (
-            <ProductPlaceholderIcon />
-          )}
-        </div>
+        <ProductGallery images={images} fallbackAlt={product.name} />
 
         <div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-slate">
@@ -77,39 +72,22 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
             <p className="mt-3 text-base leading-relaxed text-slate">{product.shortDescription}</p>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center gap-4">
+          <div className="mt-6 flex flex-wrap items-center gap-3">
             <p className="text-xl font-semibold text-ink">{formatProductPrice(product)}</p>
             {availabilityLabel && (
-              <span className={`text-sm ${isAvailabilityConcerning(product.availability) ? "text-warn" : "text-slate"}`}>
-                {availabilityLabel}
-              </span>
+              <Badge tone={isAvailabilityConcerning(product.availability) ? "warn" : "neutral"}>{availabilityLabel}</Badge>
             )}
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-4">
             {quoteOnly ? (
-              <Link
-                href="/request-quote"
-                className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
-              >
-                Request a Quote
-              </Link>
+              <Button href="/request-quote">Request a Quote</Button>
             ) : (
-              <Link
-                href="/configurator"
-                className="rounded-md bg-ink px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
-              >
-                Configure a System
-              </Link>
+              <Button href="/configurator">Configure a System</Button>
             )}
-            <a
-              href="https://wa.me/923110597513"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink"
-            >
+            <Button href="https://wa.me/923110597513" external variant="ghost">
               Ask on WhatsApp →
-            </a>
+            </Button>
           </div>
 
           {product.warranty && (
@@ -176,15 +154,5 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
     </Container>
-  );
-}
-
-function ProductPlaceholderIcon() {
-  return (
-    <svg viewBox="0 0 48 48" fill="none" className="h-14 w-14 text-line" aria-hidden="true">
-      <rect x="6" y="14" width="36" height="24" rx="3" stroke="currentColor" strokeWidth="2" />
-      <circle cx="24" cy="26" r="7" stroke="currentColor" strokeWidth="2" />
-      <path d="M17 14L20 9H28L31 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

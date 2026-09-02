@@ -2,20 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Container } from "@/components/marketing/Primitives";
+import { Button, Badge } from "@/components/marketing/ui";
+import { ProductGallery } from "@/components/marketing/ProductGallery";
+import { CATEGORY_LABELS } from "@/components/marketing/PackageCard";
 import { getPublicPackageBySlug } from "@/server/publicRoutes/packages";
 import { formatPackagePrice, isQuoteOnlyPrice, formatProductPrice, firstProductImage } from "@/lib/marketing/productDisplay";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { buildPackageJsonLd } from "@/lib/seo/structuredData";
 import type { PublicPackageItem } from "@/server/publicRoutes/packages";
-
-const CATEGORY_LABELS: Record<string, string> = {
-  HOME_STARTER: "Home — Starter",
-  HOME_COMPLETE: "Home — Complete",
-  SHOP_RETAIL: "Shop & Retail",
-  OFFICE: "Office",
-  RESTAURANT_CAFE: "Restaurant & Café",
-  CUSTOM: "Custom",
-};
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -62,6 +56,12 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
 
       <div className="mt-6 grid grid-cols-1 gap-10 lg:grid-cols-[1.2fr_1fr]">
         <div>
+          {pkg.images.length > 0 && (
+            <div className="mb-6">
+              <ProductGallery images={pkg.images} fallbackAlt={pkg.name} />
+            </div>
+          )}
+
           <span className="text-xs font-semibold uppercase tracking-wide text-accent-strong">
             {CATEGORY_LABELS[pkg.category] ?? pkg.category}
           </span>
@@ -123,22 +123,24 @@ export default async function PackageDetailPage({ params }: { params: Promise<{ 
         <div>
           <div className="rounded-lg border border-line bg-paper-raised p-5">
             <p className="text-xl font-semibold text-ink">{formatPackagePrice(pkg)}</p>
-            {!quoteOnly && <p className="mt-1 text-xs text-slate">Verified price — final quote may vary based on your site.</p>}
-            {quoteOnly && <p className="mt-1 text-xs text-slate">Pricing for this package hasn&rsquo;t been confirmed yet — request a quote and we&rsquo;ll get back to you with real numbers.</p>}
+            {!quoteOnly && (
+              <Badge tone="neutral" className="mt-2">
+                Verified — final quote may vary by site
+              </Badge>
+            )}
+            {quoteOnly && (
+              <Badge tone="warn" className="mt-2">
+                Pricing not yet confirmed — request a quote
+              </Badge>
+            )}
 
             <div className="mt-5 flex flex-col gap-3">
-              <Link
-                href={configureHref}
-                className="rounded-md bg-ink px-6 py-3 text-center text-sm font-semibold text-paper transition-colors hover:bg-accent-strong"
-              >
+              <Button href={configureHref} className="w-full">
                 Configure This Package
-              </Link>
-              <Link
-                href="/request-quote"
-                className="rounded-md border border-line px-6 py-3 text-center text-sm font-semibold text-ink transition-colors hover:border-accent"
-              >
+              </Button>
+              <Button href="/request-quote" variant="secondary" className="w-full">
                 Request a Quote
-              </Link>
+              </Button>
             </div>
           </div>
 

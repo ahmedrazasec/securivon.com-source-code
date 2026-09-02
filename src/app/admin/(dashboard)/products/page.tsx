@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { adminFetch, AdminApiError, fieldErrors } from "@/lib/admin/adminApi";
+import type { ChangeEvent } from "react";
+import { adminFetch, adminUploadImage, AdminApiError, fieldErrors } from "@/lib/admin/adminApi";
 import {
   PageHeader,
   Button,
@@ -20,6 +21,11 @@ import {
   colors,
 } from "@/components/admin/ui";
 
+interface ProductImage {
+  url: string;
+  alt?: string;
+}
+
 interface Product {
   id: string;
   slug: string;
@@ -29,6 +35,7 @@ interface Product {
   categoryId: string;
   productType: string;
   shortDescription: string | null;
+  images: ProductImage[] | null;
   useCases: string[];
   warrantyId: string | null;
   supplierId: string | null;
@@ -63,6 +70,7 @@ type FormState = {
   categoryId: string;
   productType: string;
   shortDescription: string;
+  images: ProductImage[];
   useCasesText: string;
   warrantyId: string;
   supplierId: string;
@@ -87,6 +95,7 @@ const EMPTY_FORM: FormState = {
   categoryId: "",
   productType: "",
   shortDescription: "",
+  images: [],
   useCasesText: "",
   warrantyId: "",
   supplierId: "",
@@ -125,6 +134,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
 
   const [archiving, setArchiving] = useState<Product | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   async function loadAll() {
     setLoadError(null);
@@ -185,6 +195,7 @@ export default function ProductsPage() {
       categoryId: p.categoryId,
       productType: p.productType,
       shortDescription: p.shortDescription ?? "",
+      images: Array.isArray(p.images) ? p.images : [],
       useCasesText: p.useCases.join(", "),
       warrantyId: p.warrantyId ?? "",
       supplierId: p.supplierId ?? "",
@@ -211,6 +222,41 @@ export default function ProductsPage() {
     return Number.isFinite(n) ? n : null;
   }
 
+  // Drops rows where the URL field was left empty (added a row, changed
+  // their mind), trims alt text, and sends null rather than [] when nothing
+  // valid remains — matches how the rest of this form treats "no value".
+  function cleanImages(images: ProductImage[]): ProductImage[] | null {
+    const valid = images
+      .filter((img) => img.url.trim() !== "")
+      .map((img) => ({ url: img.url.trim(), ...(img.alt?.trim() ? { alt: img.alt.trim() } : {}) }));
+    return valid.length > 0 ? valid : null;
+  }
+
+  function moveImage(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= form.images.length) return;
+    const next = [...form.images];
+    [next[index], next[target]] = [next[target], next[index]];
+    setForm({ ...form, images: next });
+  }
+
+  async function handleImageFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+
+    setUploadingImage(true);
+    setFormError(null);
+    try {
+      const { url } = await adminUploadImage("product", file);
+      setForm((prev) => ({ ...prev, images: [...prev.images, { url, alt: "" }] }));
+    } catch (err) {
+      setFormError(err instanceof AdminApiError ? err.message : "Image upload failed.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   async function handleSave() {
     setSaving(true);
     setFormError(null);
@@ -224,6 +270,7 @@ export default function ProductsPage() {
       categoryId: form.categoryId,
       productType: form.productType.trim(),
       shortDescription: form.shortDescription.trim() || null,
+      images: cleanImages(form.images),
       useCases: form.useCasesText.split(",").map((s) => s.trim()).filter(Boolean),
       warrantyId: form.warrantyId || null,
       supplierId: form.supplierId || null,
@@ -392,6 +439,103 @@ export default function ProductsPage() {
           <Field label="Short description">
             <Textarea value={form.shortDescription} onChange={(v) => setForm({ ...form, shortDescription: v })} rows={2} />
           </Field>
+
+          <div style={{ marginBottom: 14 }}>
+            <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: colors.ink, marginBottom: 5 }}>
+              Images
+            </span>
+            <p style={{ fontSize: 12, color: colors.slate, marginBottom: 8 }}>
+              Upload an image directly, or paste a direct HTTPS image URL — both work the same way. The first image
+              is used on product cards and as the main product photo; additional images appear as a gallery on the
+              product page. Use the arrows to reorder.
+            </p>
+            {form.images.length === 0 && (
+              <p style={{ fontSize: 12, color: colors.slateLight, marginBottom: 8 }}>No images added yet.</p>
+            )}
+            {form.images.map((img, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(i, -1)}
+                    disabled={i === 0}
+                    aria-label="Move image up"
+                    style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? colors.slateLight : colors.slate, fontSize: 12, lineHeight: 1, padding: 2 }}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(i, 1)}
+                    disabled={i === form.images.length - 1}
+                    aria-label="Move image down"
+                    style={{ background: "none", border: "none", cursor: i === form.images.length - 1 ? "default" : "pointer", color: i === form.images.length - 1 ? colors.slateLight : colors.slate, fontSize: 12, lineHeight: 1, padding: 2 }}
+                  >
+                    ▼
+                  </button>
+                </div>
+                <div style={{ flex: 2 }}>
+                  <Input
+                    value={img.url}
+                    onChange={(v) => {
+                      const next = [...form.images];
+                      next[i] = { ...next[i], url: v };
+                      setForm({ ...form, images: next });
+                    }}
+                    placeholder="https://…/image.jpg"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Input
+                    value={img.alt ?? ""}
+                    onChange={(v) => {
+                      const next = [...form.images];
+                      next[i] = { ...next[i], alt: v };
+                      setForm({ ...form, images: next });
+                    }}
+                    placeholder="Alt text (optional)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, images: form.images.filter((_, idx) => idx !== i) })}
+                  aria-label="Remove image"
+                  style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: 13, padding: "8px 4px" }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Button variant="secondary" onClick={() => setForm({ ...form, images: [...form.images, { url: "", alt: "" }] })}>
+                + Add image URL
+              </Button>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: uploadingImage ? colors.slateLight : colors.ink,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 6,
+                  padding: "8px 14px",
+                  cursor: uploadingImage ? "default" : "pointer",
+                  background: "#fff",
+                }}
+              >
+                {uploadingImage ? "Uploading…" : "Upload image"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleImageFileSelected}
+                  disabled={uploadingImage}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </div>
+          </div>
 
           <Field label="Use cases (comma-separated)">
             <Input value={form.useCasesText} onChange={(v) => setForm({ ...form, useCasesText: v })} placeholder="e.g. home entrance, shop counter" />

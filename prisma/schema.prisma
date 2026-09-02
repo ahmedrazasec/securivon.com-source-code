@@ -392,6 +392,9 @@ model Package {
   name                      String
   targetCustomerDescription String?
   category                  PackageCategory
+  // [{ url, alt }] — same structure/conventions as Product.images: production
+  // images only, admin-authored, never AI-generated/invented imagery.
+  images                    Json?
   cameraCount                Int?
   cameraTypeSummary          String?
   recorderProductId          String?
@@ -760,6 +763,9 @@ model Guide {
   slug             String         @unique
   title            String
   body             String
+  // [{ url, alt }] — same convention as Product.images/Package.images:
+  // production images only, admin-authored, never AI-generated/invented.
+  images           Json?
   seoTitle         String?
   seoDescription   String?
   status           ContentStatus  @default(DRAFT)

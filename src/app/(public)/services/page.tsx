@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Container, SectionHeading } from "@/components/marketing/Primitives";
+import { Card, Badge } from "@/components/marketing/ui";
+import { ServiceIcon } from "@/components/marketing/ServiceIcon";
 import { getPublicServiceCatalogue } from "@/server/publicRoutes/services";
 
 export const metadata: Metadata = {
@@ -19,16 +20,23 @@ export default async function ServicesPage() {
   return (
     <Container className="py-14 sm:py-20">
       <SectionHeading eyebrow="What we do" title="Services" description="Every system starts with your property, not a fixed package." />
-      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {services.map((service) => (
-          <Link
-            key={service.slug}
-            href={`/services/${service.slug}`}
-            className="group rounded-lg border border-line bg-paper-raised p-6 transition-colors hover:border-accent"
-          >
-            <h2 className="text-base font-semibold text-ink group-hover:text-accent-strong">{service.name}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-slate">{service.shortDescription}</p>
-          </Link>
+          <Card key={service.slug} href={`/services/${service.slug}`} className="flex flex-col gap-4 p-6">
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-line bg-paper text-ink">
+                <ServiceIcon slug={service.slug} />
+              </span>
+              {service.quoteOnly && <Badge tone="neutral">Quote only</Badge>}
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-ink group-hover:text-accent-strong">{service.name}</h2>
+              {service.shortDescription && (
+                <p className="mt-2 text-sm leading-relaxed text-slate">{service.shortDescription}</p>
+              )}
+            </div>
+            <span className="mt-auto pt-2 text-xs font-semibold text-accent-strong">Learn more →</span>
+          </Card>
         ))}
       </div>
     </Container>

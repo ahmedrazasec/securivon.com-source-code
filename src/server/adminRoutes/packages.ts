@@ -17,11 +17,17 @@ import { configuratorPrefillSchema } from "@/server/validation/schemas";
  * handling here; edit routing/param-adaptation there.
  */
 
+const packageImageSchema = z.object({
+  url: z.string().url(),
+  alt: z.string().optional(),
+});
+
 const packageSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
   targetCustomerDescription: z.string().nullable().optional(),
   category: z.enum(["HOME_STARTER", "HOME_COMPLETE", "SHOP_RETAIL", "OFFICE", "RESTAURANT_CAFE", "CUSTOM"]),
+  images: z.array(packageImageSchema).nullable().optional(),
   cameraCount: z.number().int().min(0).nullable().optional(),
   cameraTypeSummary: z.string().nullable().optional(),
   recorderProductId: z.string().nullable().optional(),
@@ -74,6 +80,7 @@ export async function createPackage(request: NextRequest) {
     const pkg = await container.packages.create(session.sub, {
       ...parsed.data,
       targetCustomerDescription: parsed.data.targetCustomerDescription ?? null,
+      images: parsed.data.images ?? null,
       cameraCount: parsed.data.cameraCount ?? null,
       cameraTypeSummary: parsed.data.cameraTypeSummary ?? null,
       recorderProductId: parsed.data.recorderProductId ?? null,

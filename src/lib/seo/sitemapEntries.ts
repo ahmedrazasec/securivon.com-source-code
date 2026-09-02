@@ -47,17 +47,23 @@ export interface SitemapDeps {
   getProducts: () => Promise<{ products: { slug: string }[] }>;
   getPackages: () => Promise<{ slug: string }[]>;
   getServices: () => Promise<{ slug: string }[]>;
+  getGuides: () => Promise<{ slug: string }[]>;
 }
 
 /**
  * Builds the full sitemap entry list: static pages + every currently
- * PUBLISHED product/package/service slug (via the same public catalogue
- * readers the actual /products, /packages, and /services pages use — an
- * entity that isn't publicly visible on the site is never listed here
- * either).
+ * PUBLISHED product/package/service/guide slug (via the same public
+ * catalogue readers the actual /products, /packages, /services, and
+ * /guides pages use — an entity that isn't publicly visible on the site
+ * is never listed here either).
  */
 export async function buildSitemapEntries(deps: SitemapDeps): Promise<SitemapEntry[]> {
-  const [{ products }, packages, services] = await Promise.all([deps.getProducts(), deps.getPackages(), deps.getServices()]);
+  const [{ products }, packages, services, guides] = await Promise.all([
+    deps.getProducts(),
+    deps.getPackages(),
+    deps.getServices(),
+    deps.getGuides(),
+  ]);
 
   const productEntries: SitemapEntry[] = products.map((p) => ({
     url: `/products/${p.slug}`,
@@ -77,7 +83,13 @@ export async function buildSitemapEntries(deps: SitemapDeps): Promise<SitemapEnt
     priority: 0.7,
   }));
 
-  return [...STATIC_ENTRIES, ...serviceEntries, ...productEntries, ...packageEntries];
+  const guideEntries: SitemapEntry[] = guides.map((g) => ({
+    url: `/guides/${g.slug}`,
+    changeFrequency: "monthly",
+    priority: 0.5,
+  }));
+
+  return [...STATIC_ENTRIES, ...serviceEntries, ...productEntries, ...packageEntries, ...guideEntries];
 }
 
 /** Prefixes every relative entry URL with SITE_URL, for the final Next.js sitemap output. */

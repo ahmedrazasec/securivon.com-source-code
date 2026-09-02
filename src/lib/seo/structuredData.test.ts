@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildProductJsonLd, buildPackageJsonLd, buildServiceJsonLd } from "@/lib/seo/structuredData";
+import { buildProductJsonLd, buildPackageJsonLd, buildServiceJsonLd, buildGuideJsonLd } from "@/lib/seo/structuredData";
 import type { PublicProductDetail } from "@/server/publicRoutes/productCatalogue";
 import type { PublicPackageDetail } from "@/server/publicRoutes/packageCatalogue";
 import type { PublicServiceDetail } from "@/server/publicRoutes/serviceCatalogue";
+import type { PublicGuideDetail } from "@/server/publicRoutes/guideCatalogue";
 
 function baseProduct(overrides: Partial<PublicProductDetail> = {}): PublicProductDetail {
   return {
@@ -41,6 +42,7 @@ function basePackage(overrides: Partial<PublicPackageDetail> = {}): PublicPackag
     name: "Home Starter — 4 Camera",
     targetCustomerDescription: "A starter CCTV setup for small homes.",
     category: "HOME_STARTER",
+    images: [],
     cameraCount: 4,
     cameraTypeSummary: null,
     storageSummary: null,
@@ -162,5 +164,45 @@ describe("buildServiceJsonLd", () => {
     expect(result["@type"]).toBe("Service");
     expect(result).not.toHaveProperty("offers");
     expect(result.provider).toEqual({ "@type": "Organization", name: "Securivon", url: expect.stringContaining("http") });
+  });
+});
+
+describe("buildGuideJsonLd", () => {
+  const guide: PublicGuideDetail = {
+    id: "guide-1",
+    slug: "how-many-cctv-cameras-do-i-need",
+    title: "How many CCTV cameras do I need?",
+    excerpt: "It depends on your property's layout and entry points.",
+    images: [],
+    readingTimeMinutes: 3,
+    publishedAt: "2026-08-01T00:00:00.000Z",
+    body: "full body text",
+    seoTitle: null,
+    seoDescription: null,
+  };
+
+  it("builds a TechArticle entry with real fields only, no fabricated author/rating claims", () => {
+    const result = buildGuideJsonLd(guide);
+    expect(result["@type"]).toBe("TechArticle");
+    expect(result.headline).toBe("How many CCTV cameras do I need?");
+    expect(result.datePublished).toBe("2026-08-01T00:00:00.000Z");
+    expect(result).not.toHaveProperty("author");
+    expect(result).not.toHaveProperty("aggregateRating");
+    expect(result).not.toHaveProperty("review");
+  });
+
+  it("omits datePublished entirely rather than fabricating one when publishedAt is null", () => {
+    const result = buildGuideJsonLd({ ...guide, publishedAt: null });
+    expect(result).not.toHaveProperty("datePublished");
+  });
+
+  it("omits image rather than using a placeholder when the guide has no cover image", () => {
+    const result = buildGuideJsonLd(guide);
+    expect(result.image).toBeUndefined();
+  });
+
+  it("includes the real cover image URL when one exists", () => {
+    const result = buildGuideJsonLd({ ...guide, images: [{ url: "https://example.com/cover.jpg", alt: "Cover" }] });
+    expect(result.image).toBe("https://example.com/cover.jpg");
   });
 });

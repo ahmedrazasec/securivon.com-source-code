@@ -14,6 +14,15 @@ import { container } from "@/server/container";
  * Edit request handling here; edit routing/param-adaptation there.
  */
 
+// [{ url, alt }] — matches Product.images (see schema.prisma comment: "production
+// images only; never AI-generated/invented imagery") and the shape
+// firstProductImage()/productImages() (src/lib/marketing/productDisplay.ts)
+// already parse defensively on the read side.
+const productImageSchema = z.object({
+  url: z.string().url(),
+  alt: z.string().optional(),
+});
+
 const productWriteSchema = z.object({
   slug: z.string().min(1),
   name: z.string().min(1),
@@ -23,6 +32,7 @@ const productWriteSchema = z.object({
   productType: z.string().min(1),
   shortDescription: z.string().nullable().optional(),
   longDescription: z.string().nullable().optional(),
+  images: z.array(productImageSchema).nullable().optional(),
   useCases: z.array(z.string()).default([]),
   warrantyId: z.string().nullable().optional(),
   supplierId: z.string().nullable().optional(),
@@ -69,7 +79,7 @@ export async function POST(request: NextRequest) {
       customerPriceValueMax: parsed.data.customerPriceValueMax ?? null,
       installationPriceValue: parsed.data.installationPriceValue ?? null,
       installationPriceValueMax: parsed.data.installationPriceValueMax ?? null,
-      images: null,
+      images: parsed.data.images ?? null,
       specifications: null,
       priceEffectiveDate: null,
       priceReviewDueDate: null,

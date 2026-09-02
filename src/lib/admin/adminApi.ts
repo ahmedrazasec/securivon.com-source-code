@@ -38,6 +38,38 @@ export async function adminFetch<T>(url: string, init?: RequestInit): Promise<T>
   return body as T;
 }
 
+/**
+ * Uploads a single catalogue image file to /api/admin/upload and returns
+ * its public URL. Deliberately separate from adminFetch() rather than a
+ * shared core with a "skip JSON header" flag: adminFetch always sends
+ * Content-Type: application/json, which is wrong for a multipart upload —
+ * the browser needs to set its own multipart boundary header, so this
+ * function must NOT set Content-Type at all. Shares the same 401→login
+ * redirect and error-shape behavior as adminFetch so upload failures look
+ * and behave consistently with every other admin action.
+ */
+export async function adminUploadImage(entityType: "product" | "package" | "guide", file: File): Promise<{ url: string }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("entityType", entityType);
+
+  const res = await fetch("/api/admin/upload", { method: "POST", body: formData });
+
+  if (res.status === 401) {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- see adminFetch above
+    if (typeof window !== "undefined") window.location.href = "/admin/login";
+    throw new AdminApiError("Session expired.", 401);
+  }
+
+  const body = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    throw new AdminApiError(body?.error ?? `Upload failed (${res.status}).`, res.status, body?.details);
+  }
+
+  return body as { url: string };
+}
+
 export function fieldErrors(details: unknown): Record<string, string> {
   const flat = details as { fieldErrors?: Record<string, string[]> } | undefined;
   if (!flat?.fieldErrors) return {};

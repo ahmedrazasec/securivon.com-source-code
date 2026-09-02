@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { adminFetch, AdminApiError, fieldErrors } from "@/lib/admin/adminApi";
+import type { ChangeEvent } from "react";
+import { adminFetch, adminUploadImage, AdminApiError, fieldErrors } from "@/lib/admin/adminApi";
 import {
   PageHeader,
   Button,
@@ -33,12 +34,18 @@ interface PackageItem {
   displayOrder: number;
 }
 
+interface PackageImage {
+  url: string;
+  alt?: string;
+}
+
 interface Package {
   id: string;
   slug: string;
   name: string;
   targetCustomerDescription: string | null;
   category: string;
+  images: PackageImage[] | null;
   cameraCount: number | null;
   cameraTypeSummary: string | null;
   recorderProductId: string | null;
@@ -71,6 +78,7 @@ type PkgFormState = {
   name: string;
   targetCustomerDescription: string;
   category: string;
+  images: PackageImage[];
   cameraCount: string;
   cameraTypeSummary: string;
   recorderProductId: string;
@@ -92,6 +100,7 @@ const EMPTY_PKG_FORM: PkgFormState = {
   name: "",
   targetCustomerDescription: "",
   category: "HOME_STARTER",
+  images: [],
   cameraCount: "",
   cameraTypeSummary: "",
   recorderProductId: "",
@@ -132,6 +141,15 @@ function num(v: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Same behavior as the Product admin form's image cleanup — drop empty-URL
+// rows, trim alt text, send null rather than [] when nothing valid remains.
+function cleanImages(images: PackageImage[]): PackageImage[] | null {
+  const valid = images
+    .filter((img) => img.url.trim() !== "")
+    .map((img) => ({ url: img.url.trim(), ...(img.alt?.trim() ? { alt: img.alt.trim() } : {}) }));
+  return valid.length > 0 ? valid : null;
+}
+
 export default function PackagesPage() {
   const [packages, setPackages] = useState<Package[] | null>(null);
   const [products, setProducts] = useState<Ref[]>([]);
@@ -146,6 +164,7 @@ export default function PackagesPage() {
   const [pkgFormErrors, setPkgFormErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState<Package | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [managingItems, setManagingItems] = useState<Package | null>(null);
   const [itemForm, setItemForm] = useState<ItemFormState>(EMPTY_ITEM_FORM);
@@ -184,6 +203,31 @@ export default function PackagesPage() {
 
   // --- Package create/edit ---
 
+  function moveImage(index: number, direction: -1 | 1) {
+    const target = index + direction;
+    if (target < 0 || target >= pkgForm.images.length) return;
+    const next = [...pkgForm.images];
+    [next[index], next[target]] = [next[target], next[index]];
+    setPkgForm({ ...pkgForm, images: next });
+  }
+
+  async function handleImageFileSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setUploadingImage(true);
+    setPkgFormError(null);
+    try {
+      const { url } = await adminUploadImage("package", file);
+      setPkgForm((prev) => ({ ...prev, images: [...prev.images, { url, alt: "" }] }));
+    } catch (err) {
+      setPkgFormError(err instanceof AdminApiError ? err.message : "Image upload failed.");
+    } finally {
+      setUploadingImage(false);
+    }
+  }
+
   function openCreate() {
     setEditing(null);
     setPkgForm(EMPTY_PKG_FORM);
@@ -199,6 +243,7 @@ export default function PackagesPage() {
       name: p.name,
       targetCustomerDescription: p.targetCustomerDescription ?? "",
       category: p.category,
+      images: Array.isArray(p.images) ? p.images : [],
       cameraCount: p.cameraCount != null ? String(p.cameraCount) : "",
       cameraTypeSummary: p.cameraTypeSummary ?? "",
       recorderProductId: p.recorderProductId ?? "",
@@ -241,6 +286,7 @@ export default function PackagesPage() {
       name: pkgForm.name.trim(),
       targetCustomerDescription: pkgForm.targetCustomerDescription.trim() || null,
       category: pkgForm.category,
+      images: cleanImages(pkgForm.images),
       cameraCount: num(pkgForm.cameraCount),
       cameraTypeSummary: pkgForm.cameraTypeSummary.trim() || null,
       recorderProductId: pkgForm.recorderProductId || null,
@@ -423,6 +469,103 @@ export default function PackagesPage() {
           <Field label="Status">
             <Select value={pkgForm.status} onChange={(v) => setPkgForm({ ...pkgForm, status: v })} options={STATUSES.map((s) => ({ value: s, label: s }))} />
           </Field>
+
+          <div style={{ marginBottom: 14 }}>
+            <span style={{ display: "block", fontSize: 12, fontWeight: 500, color: colors.ink, marginBottom: 5 }}>
+              Images
+            </span>
+            <p style={{ fontSize: 12, color: colors.slate, marginBottom: 8 }}>
+              Upload an image directly, or paste a direct HTTPS image URL — both work the same way. The first image
+              is used on the package card and as the main package photo; additional images appear as a gallery on
+              the package page. Use the arrows to reorder.
+            </p>
+            {pkgForm.images.length === 0 && (
+              <p style={{ fontSize: 12, color: colors.slateLight, marginBottom: 8 }}>No images added yet.</p>
+            )}
+            {pkgForm.images.map((img, i) => (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingTop: 6 }}>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(i, -1)}
+                    disabled={i === 0}
+                    aria-label="Move image up"
+                    style={{ background: "none", border: "none", cursor: i === 0 ? "default" : "pointer", color: i === 0 ? colors.slateLight : colors.slate, fontSize: 12, lineHeight: 1, padding: 2 }}
+                  >
+                    ▲
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => moveImage(i, 1)}
+                    disabled={i === pkgForm.images.length - 1}
+                    aria-label="Move image down"
+                    style={{ background: "none", border: "none", cursor: i === pkgForm.images.length - 1 ? "default" : "pointer", color: i === pkgForm.images.length - 1 ? colors.slateLight : colors.slate, fontSize: 12, lineHeight: 1, padding: 2 }}
+                  >
+                    ▼
+                  </button>
+                </div>
+                <div style={{ flex: 2 }}>
+                  <Input
+                    value={img.url}
+                    onChange={(v) => {
+                      const next = [...pkgForm.images];
+                      next[i] = { ...next[i], url: v };
+                      setPkgForm({ ...pkgForm, images: next });
+                    }}
+                    placeholder="https://…/image.jpg"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <Input
+                    value={img.alt ?? ""}
+                    onChange={(v) => {
+                      const next = [...pkgForm.images];
+                      next[i] = { ...next[i], alt: v };
+                      setPkgForm({ ...pkgForm, images: next });
+                    }}
+                    placeholder="Alt text (optional)"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPkgForm({ ...pkgForm, images: pkgForm.images.filter((_, idx) => idx !== i) })}
+                  aria-label="Remove image"
+                  style={{ background: "none", border: "none", color: colors.danger, cursor: "pointer", fontSize: 13, padding: "8px 4px" }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <Button variant="secondary" onClick={() => setPkgForm({ ...pkgForm, images: [...pkgForm.images, { url: "", alt: "" }] })}>
+                + Add image URL
+              </Button>
+              <label
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                  fontSize: 13,
+                  fontWeight: 500,
+                  color: uploadingImage ? colors.slateLight : colors.ink,
+                  border: `1px solid ${colors.border}`,
+                  borderRadius: 6,
+                  padding: "8px 14px",
+                  cursor: uploadingImage ? "default" : "pointer",
+                  background: "#fff",
+                }}
+              >
+                {uploadingImage ? "Uploading…" : "Upload image"}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleImageFileSelected}
+                  disabled={uploadingImage}
+                  style={{ display: "none" }}
+                />
+              </label>
+            </div>
+          </div>
 
           <hr style={{ border: "none", borderTop: `1px solid ${colors.border}`, margin: "16px 0" }} />
           <p style={{ fontSize: 12, fontWeight: 600, color: colors.slate, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 12 }}>

@@ -10,7 +10,7 @@ import { adminFetch, AdminApiError, fieldErrors } from "@/lib/admin/adminApi";
  * own form UI, since the fields genuinely differ, but the fetch/loading/
  * error/success state is identical across all three, so it lives here once.
  */
-export function useSimpleEntityCrud<T extends { id: string; name: string }>(options: {
+export function useSimpleEntityCrud<T extends { id: string }>(options: {
   listUrl: string;
   listKey: string;
   itemUrl: (id: string) => string;

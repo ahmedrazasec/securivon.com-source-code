@@ -1,6 +1,7 @@
 import type { PublicProductDetail } from "@/server/publicRoutes/productCatalogue";
 import type { PublicPackageDetail } from "@/server/publicRoutes/packageCatalogue";
 import type { PublicServiceDetail } from "@/server/publicRoutes/serviceCatalogue";
+import type { PublicGuideDetail } from "@/server/publicRoutes/guideCatalogue";
 import { firstProductImage } from "@/lib/marketing/productDisplay";
 import { SITE_URL } from "@/lib/siteUrl";
 
@@ -136,5 +137,27 @@ export function buildServiceJsonLd(service: PublicServiceDetail): Record<string,
     url: `${SITE_URL}/services/${service.slug}`,
     provider: { "@type": "Organization", name: "Securivon", url: SITE_URL },
     areaServed: "PK",
+  };
+}
+
+/**
+ * TechArticle chosen over the more generic Article: guide content is
+ * technical/how-to explanation of security-system concepts, which is
+ * exactly what TechArticle is for. No author credentials, ratings, or
+ * review counts are fabricated — only the fields the data actually has
+ * (title, description, real publishedAt/dateModified, real image if one
+ * was uploaded) are included.
+ */
+export function buildGuideJsonLd(guide: PublicGuideDetail): Record<string, unknown> {
+  const image = guide.images[0];
+  return {
+    "@context": "https://schema.org",
+    "@type": "TechArticle",
+    headline: guide.title,
+    description: guide.seoDescription ?? guide.excerpt ?? undefined,
+    url: `${SITE_URL}/guides/${guide.slug}`,
+    ...(guide.publishedAt ? { datePublished: guide.publishedAt } : {}),
+    image: image ? image.url : undefined,
+    publisher: { "@type": "Organization", name: "Securivon", url: SITE_URL },
   };
 }
